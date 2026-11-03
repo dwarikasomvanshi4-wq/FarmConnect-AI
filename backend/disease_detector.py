@@ -5,6 +5,7 @@ from transformers import pipeline
 
 
 MODEL_ID = "neghani/plantvillage-mobilenetv2"
+CONFIDENCE_THRESHOLD = 60.0
 
 
 @lru_cache(maxsize=1)
@@ -18,6 +19,7 @@ def get_classifier():
 
 
 def predict_plant_disease(image_path):
+    """Return AI screening results for an uploaded plant-leaf image."""
     classifier = get_classifier()
     predictions = classifier(image_path, top_k=3)
 
@@ -27,10 +29,9 @@ def predict_plant_disease(image_path):
     results = []
 
     for item in predictions:
-        label = item["label"]
+        label = str(item["label"])
         score = float(item["score"])
 
-        # The selected model is intended for tomato leaf categories.
         results.append({
             "label": label,
             "confidence": round(score * 100, 2),
@@ -38,13 +39,12 @@ def predict_plant_disease(image_path):
 
     best = results[0]
 
-    # Treat low-confidence results as uncertain rather than a diagnosis.
-    if best["confidence"] < 60:
+    if best["confidence"] < CONFIDENCE_THRESHOLD:
         return {
             "status": "uncertain",
             "message": (
-                "The result is uncertain. Try a clear photo of one "
-                "tomato leaf in good daylight."
+                "The prediction has low confidence. Try a clear photo "
+                "of a single plant leaf in good daylight."
             ),
             "prediction": best,
             "alternatives": results[1:],
@@ -53,8 +53,9 @@ def predict_plant_disease(image_path):
     return {
         "status": "prediction",
         "message": (
-            "This is an AI screening result, not a confirmed diagnosis. "
-            "Consult an agricultural expert before applying treatment."
+            "This is an AI-generated screening result, not a confirmed "
+            "diagnosis. Results can be inaccurate. Consult an agricultural "
+            "expert before applying treatment."
         ),
         "prediction": best,
         "alternatives": results[1:],
