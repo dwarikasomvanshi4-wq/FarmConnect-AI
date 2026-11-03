@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,7 +12,9 @@ import {
   Volume2,
   Sparkles,
   CheckCircle,
-  XCircle,
+  ArrowLeft,
+  MapPin,
+  CreditCard,
 } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -25,19 +26,49 @@ function BuyerDashboard() {
 
   const recognitionRef = useRef(null);
   const processingRef = useRef(false);
-  const confirmationRef = useRef(false);
 
   const [crops, setCrops] = useState([]);
   const [search, setSearch] = useState("");
   const [ordersCount, setOrdersCount] = useState(0);
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [weatherError, setWeatherError] = useState("");
+
   const [listening, setListening] = useState(false);
   const [voiceText, setVoiceText] = useState("");
   const [voiceMessage, setVoiceMessage] = useState("");
-  const [pendingPurchase, setPendingPurchase] = useState(null);
+
   const [processingOrder, setProcessingOrder] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState(0);
+  const [selectedCrop, setSelectedCrop] = useState(null);
+  const [selectedQuantity, setSelectedQuantity] = useState("1");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [lastOrder, setLastOrder] = useState(null);
+
+  const [address, setAddress] = useState({
+    full_name: localStorage.getItem("name") || "",
+    phone: "",
+    house: "",
+    street: "",
+    city: "",
+    state: "",
+    pincode: "",
+    instructions: "",
+  });
 
   const buyerName = localStorage.getItem("name") || "Buyer";
-  const buyerEmail = localStorage.getItem("email");
+
+  const getBuyerEmail = () => {
+    return (
+      [
+        localStorage.getItem("userEmail"),
+        localStorage.getItem("email"),
+      ].find((value) => {
+        const email = (value || "").trim().toLowerCase();
+        return email && email !== "null" && email !== "undefined";
+      })?.trim() || ""
+    );
+  };
 
   const languageCodes = {
     en: "en-IN",
@@ -50,7 +81,7 @@ function BuyerDashboard() {
   const messages = {
     "en-IN": {
       listening: "Listening. Please speak now.",
-      help: 'Say "Show available crops", "Find tomatoes", "Buy 5 kg tomatoes", "Confirm order", "Cancel order", "Show my orders", or "Check weather".',
+      help: 'Try "Show available crops", "Find tomatoes", "Buy 5 kg tomatoes", "Show my orders", or "Check weather".',
       notUnderstood: "Sorry, I did not understand. Please try again or say Help.",
       noSpeech: "I could not recognize your speech. Please try again.",
       micDenied: "Please allow microphone access in your browser settings.",
@@ -58,8 +89,6 @@ function BuyerDashboard() {
       searching: "Searching for",
       showCrops: "Showing all available crops.",
       noCrop: "I could not find that product. Please try another crop name.",
-      confirmPrompt: "Say confirm order to place your order, or cancel order to cancel it.",
-      cancelled: "Your purchase has been cancelled.",
       orderSuccess: "Your order has been placed successfully.",
       orderFailed: "I could not place your order. Please check your internet connection and available stock.",
       stockChanged: "The available stock has changed. Please check the updated stock.",
@@ -77,7 +106,7 @@ function BuyerDashboard() {
     },
     "hi-IN": {
       listening: "मैं सुन रही हूँ। कृपया अब बोलिए।",
-      help: "नमस्ते! उपलब्ध फसलें दिखाने, टमाटर खोजने, फसल खरीदने, ऑर्डर की पुष्टि करने या रद्द करने, अपने ऑर्डर देखने, मौसम की जानकारी लेने या प्रोफाइल खोलने के लिए बोलें।",
+      help: "उपलब्ध फसलें दिखाने, टमाटर खोजने, फसल खरीदने, अपने ऑर्डर देखने या मौसम की जानकारी लेने के लिए बोलें।",
       notUnderstood: "माफ़ कीजिए, मैं समझ नहीं पाई। कृपया फिर से बोलें या मदद कहें।",
       noSpeech: "मैं आपकी आवाज़ पहचान नहीं पाई। कृपया फिर से कोशिश करें।",
       micDenied: "कृपया ब्राउज़र सेटिंग्स में माइक्रोफ़ोन की अनुमति दें।",
@@ -85,10 +114,8 @@ function BuyerDashboard() {
       searching: "खोज रही हूँ",
       showCrops: "सभी उपलब्ध फसलें दिखा रही हूँ।",
       noCrop: "मुझे यह उत्पाद नहीं मिला। कृपया किसी दूसरी फसल का नाम बोलें।",
-      confirmPrompt: "ऑर्डर देने के लिए ऑर्डर कन्फर्म बोलें, या रद्द करने के लिए ऑर्डर रद्द बोलें।",
-      cancelled: "आपकी खरीद रद्द कर दी गई है।",
       orderSuccess: "आपका ऑर्डर सफलतापूर्वक दे दिया गया है।",
-      orderFailed: "मैं आपका ऑर्डर नहीं दे पाई। कृपया इंटरनेट कनेक्शन और उपलब्ध स्टॉक जाँचें।",
+      orderFailed: "ऑर्डर नहीं हो पाया। कृपया इंटरनेट और उपलब्ध स्टॉक जाँचें।",
       stockChanged: "उपलब्ध स्टॉक बदल गया है। कृपया नया स्टॉक देखें।",
       unavailable: "यह उत्पाद अब उपलब्ध नहीं है।",
       loginAgain: "ऑर्डर देने से पहले कृपया दोबारा लॉगिन करें।",
@@ -99,23 +126,21 @@ function BuyerDashboard() {
       onlyAvailable: "केवल",
       kgAvailable: "किलोग्राम अभी उपलब्ध हैं।",
       invalidQuantity: "कृपया किलोग्राम में सही मात्रा बताएं।",
-      invalidPrice: "उत्पाद की कीमत सही नहीं है। कृपया किसान से संपर्क करें।",
+      invalidPrice: "उत्पाद की कीमत सही नहीं है।",
       stockError: "उपलब्ध स्टॉक की पुष्टि नहीं हो पाई।",
     },
     "kn-IN": {
       listening: "ನಾನು ಕೇಳುತ್ತಿದ್ದೇನೆ. ದಯವಿಟ್ಟು ಈಗ ಮಾತನಾಡಿ.",
-      help: "ಲಭ್ಯವಿರುವ ಬೆಳೆಗಳನ್ನು ತೋರಿಸಲು, ಟೊಮೇಟೊ ಹುಡುಕಲು, ಬೆಳೆ ಖರೀದಿಸಲು, ಆರ್ಡರ್ ದೃಢೀಕರಿಸಲು ಅಥವಾ ರದ್ದುಮಾಡಲು, ನನ್ನ ಆರ್ಡರ್‌ಗಳನ್ನು ನೋಡಲು, ಹವಾಮಾನ ಪರಿಶೀಲಿಸಲು ಅಥವಾ ಪ್ರೊಫೈಲ್ ತೆರೆಯಲು ಹೇಳಿ.",
-      notUnderstood: "ಕ್ಷಮಿಸಿ, ನನಗೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಮಾತನಾಡಿ ಅಥವಾ ಸಹಾಯ ಎಂದು ಹೇಳಿ.",
+      help: "ಲಭ್ಯವಿರುವ ಬೆಳೆಗಳನ್ನು ತೋರಿಸಲು, ಟೊಮೇಟೊ ಹುಡುಕಲು, ಬೆಳೆ ಖರೀದಿಸಲು, ನನ್ನ ಆರ್ಡರ್‌ಗಳನ್ನು ನೋಡಲು ಅಥವಾ ಹವಾಮಾನ ಪರಿಶೀಲಿಸಲು ಹೇಳಿ.",
+      notUnderstood: "ಕ್ಷಮಿಸಿ, ನನಗೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಮಾತನಾಡಿ.",
       noSpeech: "ನಿಮ್ಮ ಮಾತುಗಳನ್ನು ಗುರುತಿಸಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
       micDenied: "ದಯವಿಟ್ಟು ಬ್ರೌಸರ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಮೈಕ್ರೋಫೋನ್ ಅನುಮತಿ ನೀಡಿ.",
       voiceUnavailable: "ಈ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು Google Chrome ಬಳಸಿ.",
       searching: "ಹುಡುಕುತ್ತಿದ್ದೇನೆ",
       showCrops: "ಲಭ್ಯವಿರುವ ಎಲ್ಲಾ ಬೆಳೆಗಳನ್ನು ತೋರಿಸುತ್ತಿದ್ದೇನೆ.",
       noCrop: "ಆ ಉತ್ಪನ್ನ ಸಿಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಬೇರೆ ಬೆಳೆಯ ಹೆಸರನ್ನು ಹೇಳಿ.",
-      confirmPrompt: "ಆರ್ಡರ್ ಮಾಡಲು ದೃಢೀಕರಿಸಿ ಎಂದು ಹೇಳಿ ಅಥವಾ ರದ್ದು ಮಾಡಲು ಆರ್ಡರ್ ರದ್ದು ಎಂದು ಹೇಳಿ.",
-      cancelled: "ನಿಮ್ಮ ಖರೀದಿಯನ್ನು ರದ್ದುಪಡಿಸಲಾಗಿದೆ.",
       orderSuccess: "ನಿಮ್ಮ ಆರ್ಡರ್ ಯಶಸ್ವಿಯಾಗಿ ಮಾಡಲಾಗಿದೆ.",
-      orderFailed: "ನಿಮ್ಮ ಆರ್ಡರ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕ ಮತ್ತು ಸ್ಟಾಕ್ ಪರಿಶೀಲಿಸಿ.",
+      orderFailed: "ಆರ್ಡರ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಇಂಟರ್ನೆಟ್ ಮತ್ತು ಸ್ಟಾಕ್ ಪರಿಶೀಲಿಸಿ.",
       stockChanged: "ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್ ಬದಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಹೊಸ ಸ್ಟಾಕ್ ಪರಿಶೀಲಿಸಿ.",
       unavailable: "ಈ ಉತ್ಪನ್ನ ಈಗ ಲಭ್ಯವಿಲ್ಲ.",
       loginAgain: "ಆರ್ಡರ್ ಮಾಡುವ ಮೊದಲು ದಯವಿಟ್ಟು ಮತ್ತೆ ಲಾಗಿನ್ ಮಾಡಿ.",
@@ -126,22 +151,27 @@ function BuyerDashboard() {
       onlyAvailable: "ಕೇವಲ",
       kgAvailable: "ಕಿಲೋಗ್ರಾಂ ಮಾತ್ರ ಈಗ ಲಭ್ಯವಿದೆ.",
       invalidQuantity: "ದಯವಿಟ್ಟು ಸರಿಯಾದ ಕಿಲೋಗ್ರಾಂ ಪ್ರಮಾಣವನ್ನು ತಿಳಿಸಿ.",
-      invalidPrice: "ಉತ್ಪನ್ನದ ಬೆಲೆ ಸರಿಯಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು ರೈತರನ್ನು ಸಂಪರ್ಕಿಸಿ.",
+      invalidPrice: "ಉತ್ಪನ್ನದ ಬೆಲೆ ಸರಿಯಾಗಿಲ್ಲ.",
       stockError: "ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್ ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
     },
   };
 
   const voiceT = (key) =>
-    (messages[language] || messages["en-IN"])[key] ||
-    messages["en-IN"][key] ||
-    "";
+    messages[language]?.[key] || messages["en-IN"][key] || "";
 
-  // Speak first, then navigate after speech finishes.
+  const normalizeText = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .normalize("NFC")
+      .replace(/[.,!?।]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
   const speak = (message, onFinished) => {
     setVoiceMessage(message);
 
     if (!("speechSynthesis" in window)) {
-      if (onFinished) onFinished();
+      onFinished?.();
       return;
     }
 
@@ -152,22 +182,15 @@ function BuyerDashboard() {
     utterance.rate = 0.95;
     utterance.pitch = 1;
 
-    const voices = window.speechSynthesis.getVoices();
     const prefix = language.split("-")[0].toLowerCase();
+    const voices = window.speechSynthesis.getVoices();
 
     const selectedVoice =
-      voices.find(
-        (voice) => voice.lang.toLowerCase() === language.toLowerCase()
-      ) ||
-      voices.find((voice) =>
-        voice.lang.toLowerCase().startsWith(prefix)
-      );
+      voices.find((voice) => voice.lang.toLowerCase() === language.toLowerCase()) ||
+      voices.find((voice) => voice.lang.toLowerCase().startsWith(prefix));
 
     if (selectedVoice) utterance.voice = selectedVoice;
-
-    if (onFinished) {
-      utterance.onend = onFinished;
-    }
+    if (onFinished) utterance.onend = onFinished;
 
     window.speechSynthesis.speak(utterance);
   };
@@ -176,6 +199,7 @@ function BuyerDashboard() {
     setVoiceMessage(voiceT("help"));
     loadCrops();
     loadOrders();
+    loadWeather();
 
     return () => {
       if (recognitionRef.current) {
@@ -198,22 +222,15 @@ function BuyerDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  const normalizeText = (value) =>
-    String(value || "")
-      .toLowerCase()
-      .normalize("NFC")
-      .replace(/[.,!?।]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
   const loadCrops = async () => {
     try {
-      const res = await api.get("/crops");
-      const data = Array.isArray(res.data)
-        ? res.data
-        : Array.isArray(res.data?.crops)
-        ? res.data.crops
+      const response = await api.get("/crops");
+      const data = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.crops)
+        ? response.data.crops
         : [];
+
       setCrops(data);
     } catch (error) {
       console.error("Crop error:", error);
@@ -222,23 +239,70 @@ function BuyerDashboard() {
   };
 
   const loadOrders = async () => {
-    if (!buyerEmail) return;
+    const email = getBuyerEmail();
+
+    if (!email) {
+      setOrdersCount(0);
+      return;
+    }
 
     try {
-      const res = await api.get(
-        `/buyer-orders/${encodeURIComponent(buyerEmail)}`
+      const response = await api.get(
+        `/buyer-orders/${encodeURIComponent(email)}`
       );
 
       setOrdersCount(
-        Array.isArray(res.data)
-          ? res.data.length
-          : Array.isArray(res.data?.orders)
-          ? res.data.orders.length
+        Array.isArray(response.data)
+          ? response.data.length
+          : Array.isArray(response.data?.orders)
+          ? response.data.orders.length
           : 0
       );
     } catch (error) {
       console.error("Orders error:", error);
     }
+  };
+
+  const loadWeather = () => {
+    if (!navigator.geolocation) {
+      setWeatherError("Location is not supported by this browser.");
+      setWeatherLoading(false);
+      return;
+    }
+
+    setWeatherLoading(true);
+    setWeatherError("");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await api.get("/weather", {
+            params: { lat: latitude, lon: longitude },
+          });
+
+          setWeather(response.data);
+          setWeatherError("");
+        } catch (error) {
+          console.error("Buyer weather error:", error.response?.data || error);
+          setWeatherError(
+            error.response?.data?.error || "Unable to load weather."
+          );
+        } finally {
+          setWeatherLoading(false);
+        }
+      },
+      (error) => {
+        console.error("Buyer location error:", error.message);
+        setWeatherError("Allow location access to see your local weather.");
+        setWeatherLoading(false);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 300000,
+      }
+    );
   };
 
   const scrollToCrops = () => {
@@ -299,6 +363,242 @@ function BuyerDashboard() {
     );
   };
 
+  const resetCheckout = () => {
+    setCheckoutStep(0);
+    setSelectedCrop(null);
+    setSelectedQuantity("1");
+    setCheckoutError("");
+    setLastOrder(null);
+  };
+
+  const cancelCheckout = () => {
+    resetCheckout();
+    scrollToCrops();
+  };
+
+  const startCheckout = (crop, quantity = "1") => {
+    if (!getBuyerEmail()) {
+      speak(voiceT("loginAgain"), () => navigate("/login"));
+      return;
+    }
+
+    if (!crop) {
+      speak(voiceT("noCrop"));
+      return;
+    }
+
+    setSelectedCrop(crop);
+    setSelectedQuantity(String(quantity));
+    setCheckoutError("");
+    setCheckoutStep(1);
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const validateQuantity = () => {
+    const quantity = Number(selectedQuantity);
+    const stock = Number(selectedCrop?.quantity);
+    const price = Number(selectedCrop?.price);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setCheckoutError(voiceT("invalidQuantity"));
+      return false;
+    }
+
+    if (!Number.isFinite(stock) || quantity > stock) {
+      setCheckoutError(
+        `${voiceT("onlyAvailable")} ${stock} ${voiceT("kgAvailable")}`
+      );
+      return false;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      setCheckoutError(voiceT("invalidPrice"));
+      return false;
+    }
+
+    return true;
+  };
+
+  const continueToAddress = () => {
+    setCheckoutError("");
+    if (!validateQuantity()) return;
+
+    setCheckoutStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateAddress = (field, value) => {
+    setAddress((previous) => ({ ...previous, [field]: value }));
+  };
+
+  const fullDeliveryAddress = () => {
+    const location = [
+      address.house,
+      address.street,
+      address.city,
+      address.state,
+      address.pincode,
+    ]
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join(", ");
+
+    const instructions = address.instructions.trim();
+    return instructions
+      ? `${location}\nDelivery instructions: ${instructions}`
+      : location;
+  };
+
+  const validateAddress = () => {
+    const requiredFields = [
+      ["full_name", "Please enter your full name."],
+      ["phone", "Please enter your phone number."],
+      ["house", "Please enter your house or flat number."],
+      ["street", "Please enter your street or area."],
+      ["city", "Please enter your city."],
+      ["state", "Please enter your state."],
+      ["pincode", "Please enter your PIN code."],
+    ];
+
+    for (const [field, message] of requiredFields) {
+      if (!address[field].trim()) {
+        setCheckoutError(message);
+        return false;
+      }
+    }
+
+    const phoneDigits = address.phone.replace(/\D/g, "");
+
+    if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+      setCheckoutError("Please enter a valid phone number.");
+      return false;
+    }
+
+    if (!/^\d{6}$/.test(address.pincode.trim())) {
+      setCheckoutError("Please enter a valid 6-digit PIN code.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const continueToReview = () => {
+    setCheckoutError("");
+
+    if (!validateQuantity() || !validateAddress()) return;
+
+    setCheckoutStep(3);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const placeOrder = async () => {
+    const email = getBuyerEmail();
+
+    if (!email) {
+      setCheckoutError(voiceT("loginAgain"));
+      return;
+    }
+
+    if (!selectedCrop || processingRef.current) return;
+    if (!validateQuantity() || !validateAddress()) return;
+
+    processingRef.current = true;
+    setProcessingOrder(true);
+    setCheckoutError("");
+
+    try {
+      const latest = await api.get("/crops");
+      const latestCrops = Array.isArray(latest.data)
+        ? latest.data
+        : Array.isArray(latest.data?.crops)
+        ? latest.data.crops
+        : [];
+
+      const currentCrop = latestCrops.find(
+        (item) => String(item.id) === String(selectedCrop.id)
+      );
+
+      if (!currentCrop) {
+        setCrops(latestCrops);
+        setCheckoutError(voiceT("unavailable"));
+        setCheckoutStep(1);
+        return;
+      }
+
+      const quantity = Number(selectedQuantity);
+      const available = Number(currentCrop.quantity);
+      const price = Number(currentCrop.price);
+
+      if (!Number.isFinite(available) || quantity > available) {
+        setCrops(latestCrops);
+        setSelectedCrop(currentCrop);
+        setCheckoutError(voiceT("stockChanged"));
+        setCheckoutStep(1);
+        return;
+      }
+
+      if (!Number.isFinite(price) || price < 0) {
+        setCheckoutError(voiceT("invalidPrice"));
+        return;
+      }
+
+      const total = quantity * price;
+      const deliveryAddress = fullDeliveryAddress();
+
+      const response = await api.post("/place-order", {
+        buyer_email: email,
+        farmer_email: currentCrop.farmer_email,
+        crop_id: currentCrop.id,
+        crop_name: currentCrop.crop_name,
+        quantity,
+        total_price: total,
+        delivery_address: deliveryAddress,
+        payment_method: "COD",
+        payment_status: "Pending",
+      });
+
+      setLastOrder({
+        id: response.data?.order_id || response.data?.id || null,
+        crop_name: currentCrop.crop_name,
+        quantity,
+        total,
+        delivery_address: deliveryAddress,
+        payment_method: "COD",
+        payment_status: "Pending",
+      });
+
+      setCheckoutStep(4);
+      await Promise.all([loadOrders(), loadCrops()]);
+      speak(voiceT("orderSuccess"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.error("Order error:", error);
+      setCheckoutError(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          voiceT("orderFailed")
+      );
+    } finally {
+      processingRef.current = false;
+      setProcessingOrder(false);
+    }
+  };
+
+  const buyCrop = (crop) => {
+    if (!getBuyerEmail()) {
+      speak(voiceT("loginAgain"), () => navigate("/login"));
+      return;
+    }
+
+    // Use the checkout flow in this component rather than navigating away.
+    startCheckout(crop, "1");
+  };
+
   const beginVoicePurchase = (crop, quantity) => {
     const amount = Number(quantity);
     const available = Number(crop?.quantity);
@@ -324,97 +624,17 @@ function BuyerDashboard() {
       return speak(voiceT("invalidPrice"));
     }
 
-    const total = amount * price;
-    setPendingPurchase({ crop, quantity: amount, total });
-    confirmationRef.current = true;
+    startCheckout(crop, String(amount));
 
+    const total = amount * price;
     const promptText =
       language === "hi-IN"
-        ? `आपने ${crop.crop_name} ${amount} किलोग्राम चुना है। प्रति किलोग्राम कीमत ${price} रुपये है। कुल कीमत ${total.toFixed(2)} रुपये है। ऑर्डर देने के लिए ऑर्डर कन्फर्म बोलें या रद्द करने के लिए ऑर्डर रद्द बोलें।`
+        ? `आपने ${crop.crop_name} ${amount} किलोग्राम चुना है। कुल कीमत ${total.toFixed(2)} रुपये है। अब डिलीवरी पता भरकर ऑर्डर पूरा करें।`
         : language === "kn-IN"
-        ? `ನೀವು ${crop.crop_name} ${amount} ಕಿಲೋಗ್ರಾಂ ಆಯ್ಕೆ ಮಾಡಿದ್ದೀರಿ. ಪ್ರತಿ ಕಿಲೋಗ್ರಾಂ ಬೆಲೆ ${price} ರೂಪಾಯಿ. ಒಟ್ಟು ಬೆಲೆ ${total.toFixed(2)} ರೂಪಾಯಿ. ಆರ್ಡರ್ ಮಾಡಲು ದೃಢೀಕರಿಸಿ ಎಂದು ಹೇಳಿ ಅಥವಾ ರದ್ದು ಮಾಡಲು ಆರ್ಡರ್ ರದ್ದು ಎಂದು ಹೇಳಿ.`
-        : `You selected ${amount} kilograms of ${crop.crop_name}. The price is ${price} rupees per kilogram. The total is ${total.toFixed(2)} rupees. Say confirm order to place it, or cancel order to cancel.`;
+        ? `ನೀವು ${crop.crop_name} ${amount} ಕಿಲೋಗ್ರಾಂ ಆಯ್ಕೆ ಮಾಡಿದ್ದೀರಿ. ಒಟ್ಟು ಬೆಲೆ ${total.toFixed(2)} ರೂಪಾಯಿ. ಈಗ ಡೆಲಿವರಿ ವಿಳಾಸ ನೀಡಿ ಆರ್ಡರ್ ಪೂರ್ಣಗೊಳಿಸಿ.`
+        : `You selected ${amount} kilograms of ${crop.crop_name}. The total is ${total.toFixed(2)} rupees. Please enter your delivery address to continue checkout.`;
 
     speak(promptText);
-  };
-
-  const cancelVoicePurchase = () => {
-    if (processingRef.current) return;
-
-    setPendingPurchase(null);
-    confirmationRef.current = false;
-    speak(voiceT("cancelled"));
-  };
-
-  const confirmVoicePurchase = async () => {
-    const purchase = pendingPurchase;
-
-    if (!purchase || processingRef.current) return;
-
-    if (!buyerEmail) {
-      setPendingPurchase(null);
-      confirmationRef.current = false;
-      speak(voiceT("loginAgain"), () => navigate("/login"));
-      return;
-    }
-
-    processingRef.current = true;
-    setProcessingOrder(true);
-
-    try {
-      const latest = await api.get("/crops");
-      const latestCrops = Array.isArray(latest.data)
-        ? latest.data
-        : Array.isArray(latest.data?.crops)
-        ? latest.data.crops
-        : [];
-
-      const currentCrop = latestCrops.find(
-        (item) => String(item.id) === String(purchase.crop.id)
-      );
-
-      if (!currentCrop) {
-        setCrops(latestCrops);
-        setPendingPurchase(null);
-        confirmationRef.current = false;
-        speak(voiceT("unavailable"));
-        return;
-      }
-
-      const currentStock = Number(currentCrop.quantity);
-
-      if (!Number.isFinite(currentStock) || purchase.quantity > currentStock) {
-        setCrops(latestCrops);
-        setPendingPurchase(null);
-        confirmationRef.current = false;
-        speak(voiceT("stockChanged"));
-        return;
-      }
-
-      await api.post("/place-order", {
-        buyer_email: buyerEmail,
-        farmer_email: currentCrop.farmer_email,
-        crop_name: currentCrop.crop_name,
-        quantity: purchase.quantity,
-        total_price: purchase.total,
-      });
-
-      setPendingPurchase(null);
-      confirmationRef.current = false;
-      speak(voiceT("orderSuccess"));
-
-      await Promise.all([loadOrders(), loadCrops()]);
-    } catch (error) {
-      console.error("Voice order error:", error);
-      speak(
-        error.response?.data?.message ||
-          error.response?.data?.error ||
-          voiceT("orderFailed")
-      );
-    } finally {
-      processingRef.current = false;
-      setProcessingOrder(false);
-    }
   };
 
   const handleVoiceCommand = (spokenText) => {
@@ -432,33 +652,6 @@ function BuyerDashboard() {
       return speak(voiceT("help"));
     }
 
-    if (confirmationRef.current) {
-      if (
-        /\b(confirm|confirm order|place my order|yes|yes confirm|yes place order)\b/.test(command) ||
-        command.includes("ऑर्डर कन्फर्म") ||
-        command.includes("ऑर्डर की पुष्टि") ||
-        command.includes("ದೃಢೀಕರಿಸು") ||
-        command.includes("ಹೌದು")
-      ) {
-        confirmVoicePurchase();
-        return;
-      }
-
-      if (
-        /\b(cancel|cancel order|cancel purchase|no|don't place)\b/.test(command) ||
-        command.includes("ऑर्डर रद्द") ||
-        command.includes("रद्द करो") ||
-        command.includes("ರದ್ದು") ||
-        command.includes("ಬೇಡ")
-      ) {
-        cancelVoicePurchase();
-        return;
-      }
-
-      return speak(voiceT("confirmPrompt"));
-    }
-
-    // Matches commands even when speech recognition adds words before "buy".
     const buyMatch = command.match(
       /\b(?:buy|order|purchase|get)\s+(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms?)\s+(?:of\s+)?(.+)$/
     );
@@ -480,7 +673,6 @@ function BuyerDashboard() {
       return beginVoicePurchase(crop, quantity);
     }
 
-    // Weather is checked before crop-name matching.
     if (
       command.includes("weather") ||
       command.includes("मौसम") ||
@@ -662,410 +854,794 @@ function BuyerDashboard() {
     navigate("/login");
   };
 
-  const buyCrop = async (crop) => {
-    if (!buyerEmail) {
-      speak(voiceT("loginAgain"), () => navigate("/login"));
-      return;
-    }
-
-    const quantity = window.prompt(`Enter quantity of ${crop.crop_name} (Kg)`);
-    if (quantity === null || quantity.trim() === "") return;
-
-    const amount = Number(quantity);
-    const available = Number(crop.quantity);
-    const price = Number(crop.price);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      speak(voiceT("invalidQuantity"));
-      return;
-    }
-
-    if (!Number.isFinite(available) || amount > available) {
-      speak(`${voiceT("onlyAvailable")} ${crop.quantity} ${voiceT("kgAvailable")}`);
-      return;
-    }
-
-    if (!Number.isFinite(price) || price < 0) {
-      speak(voiceT("invalidPrice"));
-      return;
-    }
-
-    const total = amount * price;
-    const confirmed = window.confirm(
-      `Product: ${crop.crop_name}\nQuantity: ${amount} Kg\nPrice: ₹${price}/Kg\nTotal: ₹${total.toFixed(2)}\n\nPlace order?`
-    );
-
-    if (!confirmed) {
-      speak(voiceT("cancelled"));
-      return;
-    }
-
-    try {
-      await api.post("/place-order", {
-        buyer_email: buyerEmail,
-        farmer_email: crop.farmer_email,
-        crop_name: crop.crop_name,
-        quantity: amount,
-        total_price: total,
-      });
-
-      speak(voiceT("orderSuccess"));
-      await Promise.all([loadOrders(), loadCrops()]);
-    } catch (error) {
-      console.error("Order error:", error);
-      speak(
-        error.response?.data?.message ||
-          error.response?.data?.error ||
-          voiceT("orderFailed")
-      );
-    }
-  };
-
   const filtered = crops.filter((crop) =>
     normalizeText(crop.crop_name).includes(normalizeText(search))
   );
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="bg-gradient-to-r from-green-800 to-green-600 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex flex-col lg:flex-row justify-between items-center gap-5">
-          <div>
-            <h1 className="text-3xl font-bold">🌾 FarmConnect AI</h1>
-            <p className="text-green-100 mt-1">
-              {uiT("welcomeBack") || "Welcome Back"},{" "}
-              <span className="font-bold">{buyerName}</span> 👋
+  const subtotal =
+    Number(selectedCrop?.price || 0) * Number(selectedQuantity || 0);
+
+  const StepHeader = ({ number, title, description }) => (
+    <div className="flex gap-3 items-start">
+      <div className="h-10 w-10 rounded-full bg-green-100 text-green-800 flex items-center justify-center font-bold shrink-0">
+        {number}
+      </div>
+      <div>
+        <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+        <p className="text-sm text-gray-500 mt-1">{description}</p>
+      </div>
+    </div>
+  );
+
+  const renderCheckout = () => {
+    if (checkoutStep === 0) return null;
+
+    if (checkoutStep === 4) {
+      return (
+        <div className="max-w-3xl mx-auto px-6 lg:px-10 py-10">
+          <div className="bg-white rounded-3xl shadow-lg border border-green-100 p-8 text-center">
+            <CheckCircle size={64} className="text-green-600 mx-auto" />
+            <h2 className="text-3xl font-bold text-gray-800 mt-4">
+              Order placed successfully!
+            </h2>
+            <p className="text-gray-600 mt-2">
+              Your order has been saved. You can track its progress in My Orders.
             </p>
-          </div>
 
-          <div className="flex gap-3 flex-wrap">
-            <button
-              onClick={() => navigate("/buyer-orders")}
-              className="bg-white text-green-700 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
-            >
-              <ShoppingCart size={19} />
-              {uiT("myOrders") || "My Orders"}
-            </button>
-
-            <button
-              onClick={() => navigate("/profile")}
-              className="bg-white text-green-700 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
-            >
-              <User size={19} />
-              {uiT("profile") || "Profile"}
-            </button>
-
-            <button
-              onClick={logout}
-              className="bg-red-500 hover:bg-red-600 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
-            >
-              <LogOut size={19} />
-              {uiT("logout") || "Logout"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
-        <div className="bg-gradient-to-r from-green-500 to-green-700 rounded-3xl text-white p-8 lg:p-10 shadow-xl">
-          <p className="text-green-100 font-semibold mb-2">
-            {uiT("directFarmMarket") || "DIRECT FARM MARKET"}
-          </p>
-          <h2 className="text-3xl lg:text-4xl font-bold">
-            {uiT("buyFreshCrops") || "Buy Fresh Crops Directly From Farmers"} 🌾
-          </h2>
-          <p className="mt-4 text-green-100 text-lg max-w-2xl">
-            {uiT("discoverCrops") ||
-              "Discover fresh agricultural products, connect directly with farmers and place your order easily."}
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-green-100 p-3 rounded-xl">
-              <Sparkles className="text-green-700" size={28} />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">
-                {uiT("voiceAssistant") || "Buyer Voice Assistant"}
-              </h2>
-              <p className="text-gray-500 text-sm">
-                {uiT("voiceDescription") || "Talk in English, Hindi, or Kannada."}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row gap-4 md:items-end">
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                {uiT("chooseLanguage") || "Choose your language"}
-              </label>
-              <select
-                value={appLanguage}
-                onChange={(event) => setAppLanguage(event.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
-                disabled={listening || processingOrder}
-              >
-                <option value="en">English</option>
-                <option value="hi">हिन्दी (Hindi)</option>
-                <option value="kn">ಕನ್ನಡ (Kannada)</option>
-              </select>
-            </div>
-
-            <button
-              onClick={startVoiceAssistant}
-              disabled={listening || processingOrder}
-              className={`px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${
-                listening
-                  ? "bg-red-100 text-red-700"
-                  : "bg-green-600 hover:bg-green-700 text-white"
-              } disabled:opacity-50`}
-            >
-              {listening ? <MicOff size={20} /> : <Mic size={20} />}
-              {listening
-                ? uiT("listening") || "Listening..."
-                : uiT("speakCommand") || "Speak Command"}
-            </button>
-          </div>
-
-          <div className="mt-4 bg-green-50 border border-green-100 rounded-xl p-4">
-            <div className="flex gap-2 items-start">
-              <Volume2 size={20} className="text-green-700 mt-1 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-green-800">
-                  {uiT("assistant") || "Assistant"}
-                </p>
-                <p className="text-gray-700 mt-1">{voiceMessage}</p>
-                {voiceText && (
-                  <p className="text-sm text-gray-500 mt-2">
-                    {uiT("recognized") || "Recognized"}: {voiceText}
+            {lastOrder && (
+              <div className="mt-6 text-left bg-green-50 rounded-2xl p-5 space-y-2">
+                {lastOrder.id && (
+                  <p>
+                    <strong>Order ID:</strong> {lastOrder.id}
                   </p>
                 )}
+                <p>
+                  <strong>Crop:</strong> {lastOrder.crop_name}
+                </p>
+                <p>
+                  <strong>Quantity:</strong> {lastOrder.quantity} Kg
+                </p>
+                <p>
+                  <strong>Total:</strong> ₹{lastOrder.total.toFixed(2)}
+                </p>
+                <p>
+                  <strong>Payment:</strong> Cash on Delivery
+                </p>
+                <p>
+                  <strong>Payment status:</strong> Pending
+                </p>
+                <p>
+                  <strong>Delivery address:</strong>
+                </p>
+                <p className="whitespace-pre-line text-gray-700">
+                  {lastOrder.delivery_address}
+                </p>
               </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row justify-center gap-3 mt-8">
+              <button
+                onClick={() => {
+                  resetCheckout();
+                  scrollToCrops();
+                }}
+                className="rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3"
+              >
+                Continue Shopping
+              </button>
+              <button
+                onClick={() => navigate("/buyer-orders")}
+                className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3"
+              >
+                Track Order
+              </button>
             </div>
           </div>
+        </div>
+      );
+    }
 
-          {pendingPurchase && (
-            <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
-              <h3 className="font-bold text-green-900">
-                {uiT("confirmPurchase") || "Confirm your purchase"}
-              </h3>
-              <p className="mt-2 text-gray-700">
-                {uiT("product") || "Product"}: {pendingPurchase.crop.crop_name}
-              </p>
-              <p className="text-gray-700">
-                {uiT("quantity") || "Quantity"}: {pendingPurchase.quantity} Kg
-              </p>
-              <p className="text-gray-700">
-                {uiT("pricePerKg") || "Price per Kg"}: ₹
-                {pendingPurchase.crop.price}
-              </p>
-              <p className="font-bold text-green-800 mt-1">
-                {uiT("total") || "Total"}: ₹
-                {pendingPurchase.total.toFixed(2)}
-              </p>
+    return (
+      <div className="max-w-4xl mx-auto px-6 lg:px-10 py-8">
+        <button
+          onClick={cancelCheckout}
+          className="flex items-center gap-2 text-green-700 hover:text-green-900 font-semibold mb-6"
+        >
+          <ArrowLeft size={18} />
+          Back to marketplace
+        </button>
 
-              <div className="flex flex-wrap gap-3 mt-4">
-                <button
-                  onClick={confirmVoicePurchase}
-                  disabled={processingOrder}
-                  className="rounded-xl bg-green-700 hover:bg-green-800 text-white px-4 py-2 font-semibold flex items-center gap-2 disabled:opacity-50"
+        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 md:p-8">
+          <div className="flex flex-wrap gap-2 mb-8">
+            {["Select quantity", "Delivery address", "Review & payment"].map(
+              (step, index) => (
+                <div
+                  key={step}
+                  className={`px-3 py-2 rounded-full text-sm font-semibold ${
+                    checkoutStep === index + 1
+                      ? "bg-green-700 text-white"
+                      : checkoutStep > index + 1
+                      ? "bg-green-100 text-green-800"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
                 >
-                  <CheckCircle size={18} />
-                  {processingOrder
-                    ? uiT("placingOrder") || "Placing order..."
-                    : uiT("confirmOrder") || "Confirm Order"}
+                  {index + 1}. {step}
+                </div>
+              )
+            )}
+          </div>
+
+          {checkoutError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 mb-6">
+              {checkoutError}
+            </div>
+          )}
+
+          {checkoutStep === 1 && (
+            <div className="space-y-6">
+              <StepHeader
+                number="1"
+                title="Select quantity"
+                description="Choose how many kilograms you want to purchase."
+              />
+
+              {selectedCrop && (
+                <div className="flex gap-4 bg-gray-50 rounded-2xl p-4">
+                  {selectedCrop.image_url ? (
+                    <img
+                      src={
+                        selectedCrop.image_url.startsWith("http")
+                          ? selectedCrop.image_url
+                          : `http://127.0.0.1:5000/${selectedCrop.image_url.replace(/\\/g, "/")}`
+                      }
+                      alt={selectedCrop.crop_name}
+                      className="w-24 h-24 object-cover rounded-xl"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 bg-green-100 rounded-xl flex items-center justify-center">
+                      <Package className="text-green-700" size={34} />
+                    </div>
+                  )}
+
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-800">
+                      {selectedCrop.crop_name}
+                    </h3>
+                    <p className="text-gray-500 text-sm mt-1">
+                      Farmer:{" "}
+                      {selectedCrop.farmer_name ||
+                        selectedCrop.farmer_email ||
+                        "Local Farmer"}
+                    </p>
+                    <p className="text-green-700 font-bold mt-2">
+                      ₹{Number(selectedCrop.price).toFixed(2)} / Kg
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Stock available: {selectedCrop.quantity} Kg
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Quantity in kilograms *
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  max={selectedCrop?.quantity}
+                  value={selectedQuantity}
+                  onChange={(event) => {
+                    setSelectedQuantity(event.target.value);
+                    setCheckoutError("");
+                  }}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div className="bg-green-50 rounded-xl p-4 flex justify-between items-center">
+                <span className="text-gray-700 font-medium">Estimated total</span>
+                <span className="text-2xl font-bold text-green-800">
+                  ₹{(Number(selectedCrop?.price || 0) * Number(selectedQuantity || 0)).toFixed(2)}
+                </span>
+              </div>
+
+              <button
+                onClick={continueToAddress}
+                className="w-full bg-green-700 hover:bg-green-800 text-white rounded-xl py-3 font-semibold"
+              >
+                Continue to Delivery Address
+              </button>
+            </div>
+          )}
+
+          {checkoutStep === 2 && (
+            <div className="space-y-6">
+              <StepHeader
+                number="2"
+                title="Enter delivery address"
+                description="Provide the address where the farmer should deliver your order."
+              />
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Full name *
+                  </label>
+                  <input
+                    value={address.full_name}
+                    onChange={(e) => updateAddress("full_name", e.target.value)}
+                    autoComplete="name"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                    placeholder="Enter full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Phone number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={address.phone}
+                    onChange={(e) => updateAddress("phone", e.target.value)}
+                    autoComplete="tel"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    House / Flat number *
+                  </label>
+                  <input
+                    value={address.house}
+                    onChange={(e) => updateAddress("house", e.target.value)}
+                    autoComplete="address-line1"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                    placeholder="House or flat number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Street / Area *
+                  </label>
+                  <input
+                    value={address.street}
+                    onChange={(e) => updateAddress("street", e.target.value)}
+                    autoComplete="address-line2"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                    placeholder="Street or area"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    City *
+                  </label>
+                  <input
+                    value={address.city}
+                    onChange={(e) => updateAddress("city", e.target.value)}
+                    autoComplete="address-level2"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                    placeholder="City"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    State *
+                  </label>
+                  <input
+                    value={address.state}
+                    onChange={(e) => updateAddress("state", e.target.value)}
+                    autoComplete="address-level1"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                    placeholder="State"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    PIN code *
+                  </label>
+                  <input
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={address.pincode}
+                    onChange={(e) =>
+                      updateAddress(
+                        "pincode",
+                        e.target.value.replace(/\D/g, "").slice(0, 6)
+                      )
+                    }
+                    autoComplete="postal-code"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                    placeholder="6-digit PIN code"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Delivery instructions (optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={address.instructions}
+                  onChange={(e) => updateAddress("instructions", e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                  placeholder="Landmark or instructions for delivery"
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setCheckoutError("");
+                    setCheckoutStep(1);
+                  }}
+                  className="sm:w-1/3 border border-gray-300 rounded-xl py-3 font-semibold text-gray-700"
+                >
+                  Back
                 </button>
-
                 <button
-                  onClick={cancelVoicePurchase}
-                  disabled={processingOrder}
-                  className="rounded-xl bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 font-semibold flex items-center gap-2 disabled:opacity-50"
+                  onClick={continueToReview}
+                  className="flex-1 bg-green-700 hover:bg-green-800 text-white rounded-xl py-3 font-semibold"
                 >
-                  <XCircle size={18} />
-                  {uiT("cancel") || "Cancel"}
+                  Review Order
                 </button>
               </div>
             </div>
           )}
 
-          <p className="text-sm text-gray-500 mt-4">
-            {uiT("helpCommand") ||
-              'Try: "Help", "Show available crops", "Find tomatoes", "Buy 5 kg tomatoes", "Confirm order", "Cancel order", "Show my orders", or "Check weather".'}
-          </p>
-        </div>
-      </div>
+          {checkoutStep === 3 && (
+            <div className="space-y-6">
+              <StepHeader
+                number="3"
+                title="Review order and total"
+                description="Verify your order, delivery address and payment method before placing it."
+              />
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
-        <div className="grid md:grid-cols-3 gap-6">
-          <button
-            onClick={scrollToCrops}
-            className="text-left bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl"
-          >
-            <Package size={40} className="text-green-600" />
-            <h3 className="text-lg font-semibold mt-4">
-              {uiT("availableProducts") || "Available Products"}
-            </h3>
-            <p className="text-4xl font-bold text-green-700 mt-2">
-              {crops.length}
-            </p>
-            <p className="text-gray-500 text-sm mt-1">
-              {uiT("freshCrops") || "Fresh crops from farmers"}
-            </p>
-          </button>
-
-          <button
-            onClick={() => navigate("/buyer-orders")}
-            className="text-left bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl"
-          >
-            <ShoppingCart size={40} className="text-blue-600" />
-            <h3 className="text-lg font-semibold mt-4">
-              {uiT("myOrders") || "My Orders"}
-            </h3>
-            <p className="text-4xl font-bold text-blue-700 mt-2">
-              {ordersCount}
-            </p>
-            <p className="text-gray-500 text-sm mt-1">
-              {uiT("trackPurchases") || "Track your purchases"}
-            </p>
-          </button>
-
-          <button
-            onClick={() => navigate("/weather")}
-            className="text-left bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl"
-          >
-            <Sun size={40} className="text-yellow-500" />
-            <h3 className="text-lg font-semibold mt-4">
-              {uiT("weather") || "Weather"}
-            </h3>
-            <p className="text-4xl font-bold text-orange-500 mt-2">☀️</p>
-            <p className="text-gray-500 text-sm mt-1">
-              {uiT("checkCurrentWeather") || "Check current weather"}
-            </p>
-          </button>
-        </div>
-      </div>
-
-      <div
-        id="buyer-crops-section"
-        className="max-w-7xl mx-auto px-6 lg:px-10 mt-10 scroll-mt-6"
-      >
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800">
-              {uiT("freshCrops") || "Fresh Crops"}
-            </h2>
-            <p className="text-gray-500 mt-1">
-              {uiT("buyDirectly") || "Buy directly from farmers"}
-            </p>
-          </div>
-          <p className="text-gray-500">
-            {filtered.length} {uiT("products") || "products"}
-          </p>
-        </div>
-
-        <div className="relative max-w-md">
-          <Search className="absolute left-4 top-4 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder={uiT("searchCrops") || "Search crops..."}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="w-full border border-gray-200 bg-white rounded-xl py-3 pl-12 pr-4"
-          />
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
-        {filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-            <Package size={60} className="mx-auto text-gray-300" />
-            <h3 className="text-xl font-bold text-gray-700 mt-4">
-              {uiT("noCrops") || "No crops found"}
-            </h3>
-            <p className="text-gray-500 mt-2">
-              {uiT("tryAnotherCrop") || "Try searching for another crop."}
-            </p>
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="mt-4 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-xl font-semibold"
-              >
-                {uiT("showAllCrops") || "Show all crops"}
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((crop) => (
-              <div
-                key={crop.id}
-                className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition"
-              >
-                {crop.image_url ? (
-                  <img
-                    src={
-                      crop.image_url.startsWith("http")
-                        ? crop.image_url
-                        : `http://127.0.0.1:5000/${crop.image_url.replace(/\\/g, "/")}`
-                    }
-                    alt={crop.crop_name}
-                    className="w-full h-48 object-cover"
-                  />
-                ) : (
-                  <div className="h-48 bg-green-50 flex items-center justify-center">
-                    <Package size={60} className="text-green-300" />
-                  </div>
-                )}
-
-                <div className="p-6">
-                  <div className="flex justify-between items-start gap-3">
-                    <h3 className="text-xl font-bold text-gray-800">
-                      {crop.crop_name}
-                    </h3>
-                    <span className="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
-                      {uiT("fresh") || "Fresh"}
+              <div className="border border-gray-200 rounded-2xl overflow-hidden">
+                <div className="bg-gray-50 p-4 font-bold text-gray-800">
+                  Order summary
+                </div>
+                <div className="p-5 space-y-3">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-600">Crop</span>
+                    <span className="font-semibold text-right">
+                      {selectedCrop?.crop_name}
                     </span>
                   </div>
-
-                  <p className="text-gray-500 mt-2">
-                    {uiT("farmer") || "Farmer"}:{" "}
-                    {crop.farmer_name || crop.farmer_email || "Local Farmer"}
-                  </p>
-
-                  <p className="text-2xl font-bold text-green-700 mt-4">
-                    ₹{crop.price}{" "}
-                    <span className="text-sm text-gray-500 font-normal">
-                      / Kg
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-600">Quantity</span>
+                    <span className="font-semibold">{selectedQuantity} Kg</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-gray-600">Price per Kg</span>
+                    <span>₹{Number(selectedCrop?.price || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="border-t pt-3 flex justify-between gap-4">
+                    <span className="font-bold text-gray-800">Total</span>
+                    <span className="text-2xl font-bold text-green-800">
+                      ₹{subtotal.toFixed(2)}
                     </span>
-                  </p>
-
-                  <p className="text-sm text-gray-500 mt-2">
-                    {uiT("available") || "Available"}: {crop.quantity} Kg
-                  </p>
-
-                  <button
-                    onClick={() => buyCrop(crop)}
-                    disabled={Number(crop.quantity) <= 0}
-                    className="mt-5 w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    <ShoppingCart size={18} />
-                    {uiT("buyDirectly") || "Buy Directly"}
-                  </button>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      <footer className="bg-green-900 text-green-100 py-6 mt-8">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 text-center text-sm">
-          © {new Date().getFullYear()} FarmConnect AI.{" "}
-          {uiT("copyright") || "Connecting farmers and buyers directly."}
+              <div className="border border-gray-200 rounded-2xl p-5">
+                <div className="flex gap-3 items-start">
+                  <MapPin className="text-green-700 mt-1" size={22} />
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-800">Delivery address</h3>
+                    <p className="mt-2 font-semibold">{address.full_name}</p>
+                    <p className="text-gray-600">{address.phone}</p>
+                    <p className="text-gray-600 mt-1 whitespace-pre-line">
+                      {fullDeliveryAddress()}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setCheckoutError("");
+                        setCheckoutStep(2);
+                      }}
+                      className="text-green-700 font-semibold text-sm mt-3 hover:underline"
+                    >
+                      Edit address
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-green-200 bg-green-50 rounded-2xl p-5">
+                <div className="flex items-start gap-3">
+                  <CreditCard className="text-green-700 mt-1" size={23} />
+                  <div>
+                    <h3 className="font-bold text-gray-800">Payment method</h3>
+                    <p className="font-semibold text-green-800 mt-1">
+                      Cash on Delivery (COD)
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Payment status: Pending. Pay when your order is delivered.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setCheckoutError("");
+                    setCheckoutStep(2);
+                  }}
+                  disabled={processingOrder}
+                  className="sm:w-1/3 border border-gray-300 rounded-xl py-3 font-semibold text-gray-700 disabled:opacity-50"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={placeOrder}
+                  disabled={processingOrder}
+                  className="flex-1 bg-green-700 hover:bg-green-800 text-white rounded-xl py-3 font-semibold disabled:opacity-50"
+                >
+                  {processingOrder ? "Placing Order..." : "Place Order"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </footer>
+      </div>
+    );
+  };
+
+  const getImageUrl = (imageUrl) => {
+    if (!imageUrl) return "";
+    if (imageUrl.startsWith("http")) return imageUrl;
+    return `http://127.0.0.1:5000/${imageUrl.replace(/\\/g, "/")}`;
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      {checkoutStep > 0 ? (
+        <>
+          <div className="bg-gradient-to-r from-green-800 to-green-600 text-white shadow-lg">
+            <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div>
+                <h1 className="text-3xl font-bold">🌾 FarmConnect AI</h1>
+                <p className="text-green-100 mt-1">
+                  Secure checkout for {buyerName}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate("/buyer-orders")}
+                className="bg-white text-green-700 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
+              >
+                <ShoppingCart size={19} />
+                My Orders ({ordersCount})
+              </button>
+            </div>
+          </div>
+
+          {renderCheckout()}
+        </>
+      ) : (
+        <>
+          <div className="bg-gradient-to-r from-green-800 to-green-600 text-white shadow-lg">
+            <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex flex-col lg:flex-row justify-between items-center gap-5">
+              <div>
+                <h1 className="text-3xl font-bold">🌾 FarmConnect AI</h1>
+                <p className="text-green-100 mt-1">
+                  {uiT("welcomeBack") || "Welcome Back"},{" "}
+                  <span className="font-bold">{buyerName}</span> 👋
+                </p>
+              </div>
+
+              <div className="flex gap-3 flex-wrap">
+                <button
+                  onClick={() => navigate("/buyer-orders")}
+                  className="bg-white text-green-700 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
+                >
+                  <ShoppingCart size={19} />
+                  {uiT("myOrders") || "My Orders"}
+                </button>
+
+                <button
+                  onClick={() => navigate("/profile")}
+                  className="bg-white text-green-700 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
+                >
+                  <User size={19} />
+                  {uiT("profile") || "Profile"}
+                </button>
+
+                <button
+                  onClick={logout}
+                  className="bg-red-500 hover:bg-red-600 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
+                >
+                  <LogOut size={19} />
+                  {uiT("logout") || "Logout"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
+            <div className="bg-gradient-to-r from-green-500 to-green-700 rounded-3xl text-white p-8 lg:p-10 shadow-xl">
+              <p className="text-green-100 font-semibold mb-2">
+                {uiT("directFarmMarket") || "DIRECT FARM MARKET"}
+              </p>
+              <h2 className="text-3xl lg:text-4xl font-bold">
+                {uiT("buyFreshCrops") || "Buy Fresh Crops Directly From Farmers"} 🌾
+              </h2>
+              <p className="mt-4 text-green-100 text-lg max-w-2xl">
+                {uiT("discoverCrops") ||
+                  "Discover fresh agricultural products, connect directly with farmers and place your order easily."}
+              </p>
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-green-100">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-green-100 p-3 rounded-xl">
+                  <Sparkles className="text-green-700" size={28} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">
+                    {uiT("voiceAssistant") || "Buyer Voice Assistant"}
+                  </h2>
+                  <p className="text-gray-500 text-sm">
+                    {uiT("voiceDescription") || "Talk in English, Hindi, or Kannada."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-4 md:items-end">
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    {uiT("chooseLanguage") || "Choose your language"}
+                  </label>
+                  <select
+                    value={appLanguage}
+                    onChange={(event) => setAppLanguage(event.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
+                    disabled={listening || processingOrder}
+                  >
+                    <option value="en">English</option>
+                    <option value="hi">हिन्दी (Hindi)</option>
+                    <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={startVoiceAssistant}
+                  disabled={listening || processingOrder}
+                  className={`px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 ${
+                    listening
+                      ? "bg-red-100 text-red-700"
+                      : "bg-green-600 hover:bg-green-700 text-white"
+                  } disabled:opacity-50`}
+                >
+                  {listening ? <MicOff size={20} /> : <Mic size={20} />}
+                  {listening
+                    ? uiT("listening") || "Listening..."
+                    : uiT("speakCommand") || "Speak Command"}
+                </button>
+              </div>
+
+              <div className="mt-4 bg-green-50 border border-green-100 rounded-xl p-4">
+                <div className="flex gap-2 items-start">
+                  <Volume2 size={20} className="text-green-700 mt-1 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-green-800">
+                      {uiT("assistant") || "Assistant"}
+                    </p>
+                    <p className="text-gray-700 mt-1">{voiceMessage}</p>
+                    {voiceText && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        {uiT("recognized") || "Recognized"}: {voiceText}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-500 mt-4">
+                {uiT("helpCommand") ||
+                  'Try: "Help", "Show available crops", "Find tomatoes", "Buy 5 kg tomatoes", "Show my orders", or "Check weather".'}
+              </p>
+            </div>
+          </div>
+
+          {/* Dashboard cards — one grid only */}
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
+            <div className="grid md:grid-cols-3 gap-6">
+              <button
+                onClick={scrollToCrops}
+                className="text-left bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl"
+              >
+                <Package size={40} className="text-green-600" />
+                <h3 className="text-lg font-semibold mt-4">
+                  {uiT("availableProducts") || "Available Products"}
+                </h3>
+                <p className="text-4xl font-bold text-green-700 mt-2">
+                  {crops.length}
+                </p>
+                <p className="text-gray-500 text-sm mt-1">
+                  {uiT("freshCrops") || "Fresh crops from farmers"}
+                </p>
+              </button>
+
+              <button
+                onClick={() => navigate("/buyer-orders")}
+                className="text-left bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl"
+              >
+                <ShoppingCart size={40} className="text-blue-600" />
+                <h3 className="text-lg font-semibold mt-4">
+                  {uiT("myOrders") || "My Orders"}
+                </h3>
+                <p className="text-4xl font-bold text-blue-700 mt-2">
+                  {ordersCount}
+                </p>
+                <p className="text-gray-500 text-sm mt-1">
+                  {uiT("trackPurchases") || "Track your purchases"}
+                </p>
+              </button>
+
+              <button
+                onClick={() => navigate("/weather")}
+                className="text-left bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl"
+              >
+                <Sun size={40} className="text-yellow-500" />
+                <h3 className="text-lg font-semibold mt-4">
+                  {uiT("weather") || "Weather"}
+                </h3>
+                <p className="text-4xl font-bold text-orange-500 mt-2">
+                  {weatherLoading
+                    ? "..."
+                    : weather
+                    ? `${Math.round(weather.temperature)}°C`
+                    : "--°C"}
+                </p>
+                <p className="text-gray-700 text-sm mt-1 capitalize">
+                  {weather?.weather || weatherError || "Current weather"}
+                </p>
+                {weather?.city && (
+                  <p className="text-gray-500 text-sm mt-1 flex items-center gap-1">
+                    <MapPin size={14} />
+                    {weather.city}
+                  </p>
+                )}
+                {weather && (
+                  <p className="text-gray-500 text-sm mt-1">
+                    Humidity: {weather.humidity}% · Wind: {weather.wind_speed} m/s
+                  </p>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div
+            id="buyer-crops-section"
+            className="max-w-7xl mx-auto px-6 lg:px-10 mt-10 scroll-mt-6"
+          >
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
+              <div>
+                <h2 className="text-3xl font-bold text-gray-800">
+                  {uiT("freshCrops") || "Fresh Crops"}
+                </h2>
+                <p className="text-gray-500 mt-1">
+                  {uiT("buyDirectly") || "Buy directly from farmers"}
+                </p>
+              </div>
+              <p className="text-gray-500">
+                {filtered.length} {uiT("products") || "products"}
+              </p>
+            </div>
+
+            <div className="relative max-w-md">
+              <Search className="absolute left-4 top-4 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder={uiT("searchCrops") || "Search crops..."}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="w-full border border-gray-200 bg-white rounded-xl py-3 pl-12 pr-4"
+              />
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
+            {filtered.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+                <Package size={60} className="mx-auto text-gray-300" />
+                <h3 className="text-xl font-bold text-gray-700 mt-4">
+                  {uiT("noCrops") || "No crops found"}
+                </h3>
+                <p className="text-gray-500 mt-2">
+                  {uiT("tryAnotherCrop") || "Try searching for another crop."}
+                </p>
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="mt-4 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-xl font-semibold"
+                  >
+                    {uiT("showAllCrops") || "Show all crops"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filtered.map((crop) => (
+                  <div
+                    key={crop.id}
+                    className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition"
+                  >
+                    {crop.image_url ? (
+                      <img
+                        src={getImageUrl(crop.image_url)}
+                        alt={crop.crop_name}
+                        className="w-full h-48 object-cover"
+                      />
+                    ) : (
+                      <div className="h-48 bg-green-50 flex items-center justify-center">
+                        <Package size={60} className="text-green-300" />
+                      </div>
+                    )}
+
+                    <div className="p-6">
+                      <div className="flex justify-between items-start gap-3">
+                        <h3 className="text-xl font-bold text-gray-800">
+                          {crop.crop_name}
+                        </h3>
+                        <span className="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+                          {uiT("fresh") || "Fresh"}
+                        </span>
+                      </div>
+
+                      <p className="text-gray-500 mt-2">
+                        {uiT("farmer") || "Farmer"}:{" "}
+                        {crop.farmer_name || crop.farmer_email || "Local Farmer"}
+                      </p>
+
+                      <p className="text-2xl font-bold text-green-700 mt-4">
+                        ₹{crop.price}{" "}
+                        <span className="text-sm text-gray-500 font-normal">
+                          / Kg
+                        </span>
+                      </p>
+
+                      <p className="text-sm text-gray-500 mt-2">
+                        {uiT("available") || "Available"}: {crop.quantity} Kg
+                      </p>
+
+                      <button
+                        onClick={() => buyCrop(crop)}
+                        disabled={Number(crop.quantity) <= 0}
+                        className="mt-5 w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <ShoppingCart size={18} />
+                        {uiT("buyDirectly") || "Buy Directly"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <footer className="bg-green-900 text-green-100 py-6 mt-8">
+            <div className="max-w-7xl mx-auto px-6 lg:px-10 text-center text-sm">
+              © {new Date().getFullYear()} FarmConnect AI.{" "}
+              {uiT("copyright") || "Connecting farmers and buyers directly."}
+            </div>
+          </footer>
+        </>
+      )}
     </div>
   );
 }

@@ -10,12 +10,23 @@ from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_mail import Mail, Message
+from email_service import send_email
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 load_dotenv()
+def notify_buyer(buyer_email, subject, message):
+    if not buyer_email:
+        print("Notification skipped: buyer email is missing.")
+        return
+
+    send_email(
+        to_email=buyer_email,
+        subject=subject,
+        body=message
+    )
 
 
 
@@ -875,41 +886,64 @@ def uploaded_file(filename):
 # WEATHER
 # =========================================================
 
-@app.route("/weather/<city>")
-def weather(city):
+@app.route("/weather", methods=["GET"])
+def weather():
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
 
-    url = (
-        f"https://api.openweathermap.org/data/2.5/weather"
-        f"?q={city}&appid={API_KEY}&units=metric"
-    )
+    if not lat or not lon:
+        return jsonify({
+            "error": "Latitude and longitude are required."
+        }), 400
 
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "Invalid latitude or longitude."
+        }), 400
 
-    response = requests.get(url)
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return jsonify({
+            "error": "Latitude or longitude is out of range."
+        }), 400
 
+    url = "https://api.openweathermap.org/data/2.5/weather"
 
-    if response.status_code != 200:
+    try:
+        response = requests.get(
+            url,
+            params={
+                "lat": lat,
+                "lon": lon,
+                "appid": API_KEY,
+                "units": "metric"
+            },
+            timeout=10
+        )
 
-        return jsonify(
-            response.json()
-        ), response.status_code
+        data = response.json()
 
+        if response.status_code != 200:
+            app.logger.error("Weather API error: %s", data)
+            return jsonify({
+                "error": data.get("message", "Unable to fetch weather.")
+            }), response.status_code
 
-    data = response.json()
+        return jsonify({
+            "city": data.get("name", "Current location"),
+            "temperature": data["main"]["temp"],
+            "humidity": data["main"]["humidity"],
+            "weather": data["weather"][0]["description"],
+            "wind_speed": data["wind"]["speed"]
+        })
 
-
-    return jsonify({
-
-        "city": data["name"],
-
-        "temperature": data["main"]["temp"],
-
-        "humidity": data["main"]["humidity"],
-
-        "weather": data["weather"][0]["description"],
-
-        "wind_speed": data["wind"]["speed"]
-
-    })
+    except requests.RequestException:
+        app.logger.exception("Weather API request failed")
+        return jsonify({
+            "error": "Weather service is temporarily unavailable."
+        }), 502
 
 
 # =========================================================
@@ -971,66 +1005,220 @@ def feedback():
 # =========================================================
 # PLACE ORDER
 # =========================================================
+# =========================================================
+# PLACE ORDER
+# =========================================================
+
+
+
 
 @app.route("/place-order", methods=["POST"])
 def place_order():
+    data = request.get_json(silent=True) or {}
 
-    data = request.json
+    buyer_email = (data.get("buyer_email") or "").strip().lower()
+    farmer_email = (data.get("farmer_email") or "").strip().lower()
+    crop_name = (data.get("crop_name") or "").strip()
+    delivery_address = (data.get("delivery_address") or "").strip()
 
     try:
+        crop_id = int(data.get("crop_id"))
+        quantity = int(data.get("quantity", 0))
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "Valid crop ID and quantity are required"
+        }), 400
 
-        with engine.connect() as conn:
+    if not buyer_email or not farmer_email or not crop_name:
+        return jsonify({
+            "error": "Buyer email, farmer email, and crop name are required"
+        }), 400
 
+    if not delivery_address:
+        return jsonify({
+            "error": "Delivery address is required"
+        }), 400
+
+    if quantity <= 0:
+        return jsonify({
+            "error": "Quantity must be greater than zero"
+        }), 400
+
+    try:
+        with engine.begin() as conn:
+            # Lock the crop row and check available stock
+            crop = conn.execute(
+                text("""
+                    SELECT id, farmer_email, crop_name, quantity, price
+                    FROM crops
+                    WHERE id = :crop_id
+                    FOR UPDATE
+                """),
+                {"crop_id": crop_id}
+            ).mappings().first()
+
+            if not crop:
+                return jsonify({
+                    "error": "Crop listing not found"
+                }), 404
+
+            actual_farmer_email = (
+                crop["farmer_email"] or ""
+            ).strip().lower()
+
+            if actual_farmer_email != farmer_email:
+                return jsonify({
+                    "error": "Farmer does not match this crop"
+                }), 400
+
+            actual_crop_name = (crop["crop_name"] or "").strip()
+
+            if actual_crop_name.lower() != crop_name.lower():
+                return jsonify({
+                    "error": "Crop name does not match the listing"
+                }), 400
+
+            available_quantity = int(crop["quantity"] or 0)
+
+            if quantity > available_quantity:
+                return jsonify({
+                    "error": f"Only {available_quantity} kg is available"
+                }), 400
+
+            total_price = round(float(crop["price"] or 0) * quantity, 2)
+
+            # Deduct stock
             conn.execute(
                 text("""
-                    INSERT INTO orders
-                    (
+                    UPDATE crops
+                    SET quantity = quantity - :quantity
+                    WHERE id = :crop_id
+                """),
+                {
+                    "quantity": quantity,
+                    "crop_id": crop_id
+                }
+            )
+
+            # Save the order
+            order_result = conn.execute(
+                text("""
+                    INSERT INTO orders (
+                        crop_id,
                         buyer_email,
                         farmer_email,
                         crop_name,
                         quantity,
                         total_price,
-                        status
+                        status,
+                        payment_method,
+                        payment_status,
+                        delivery_address
                     )
-
-                    VALUES
-                    (
+                    VALUES (
+                        :crop_id,
                         :buyer_email,
                         :farmer_email,
                         :crop_name,
                         :quantity,
                         :total_price,
-                        'Pending'
+                        :status,
+                        :payment_method,
+                        :payment_status,
+                        :delivery_address
                     )
                 """),
                 {
-                    "buyer_email": data["buyer_email"],
-                    "farmer_email": data["farmer_email"],
-                    "crop_name": data["crop_name"],
-                    "quantity": data["quantity"],
-                    "total_price": data["total_price"]
+                    "crop_id": crop_id,
+                    "buyer_email": buyer_email,
+                    "farmer_email": actual_farmer_email,
+                    "crop_name": actual_crop_name,
+                    "quantity": quantity,
+                    "total_price": total_price,
+                    "status": "Pending",
+                    "payment_method": "COD",
+                    "payment_status": "Pending",
+                    "delivery_address": delivery_address,
                 }
             )
 
-            conn.commit()
+            order_id = order_result.lastrowid
 
+        # The database transaction has succeeded.
+        # Email failures should not undo the saved order.
+
+        # 1. Notify the buyer
+        try:
+            notify_buyer(
+                buyer_email=buyer_email,
+                subject="FarmConnect AI - Order Placed Successfully",
+                message=(
+                    "Hello!\n\n"
+                    "Your order has been placed successfully.\n\n"
+                    f"Order ID: {order_id}\n"
+                    f"Crop: {actual_crop_name}\n"
+                    f"Quantity: {quantity} kg\n"
+                    f"Total price: ₹{total_price:.2f}\n"
+                    "Order status: Pending\n"
+                    "Payment method: Cash on Delivery (COD)\n"
+                    "Payment status: Pending\n"
+                    f"Delivery address: {delivery_address}\n\n"
+                    "Thank you for using FarmConnect AI!"
+                )
+            )
+        except Exception:
+            app.logger.exception(
+                "Buyer email notification failed for order %s",
+                order_id
+            )
+
+        # 2. Notify the farmer
+        try:
+            notify_buyer(
+                buyer_email=actual_farmer_email,
+                subject="FarmConnect AI - New Order Received",
+                message=(
+                    "Hello Farmer!\n\n"
+                    "You have received a new order on FarmConnect AI.\n\n"
+                    f"Order ID: {order_id}\n"
+                    f"Crop: {actual_crop_name}\n"
+                    f"Quantity ordered: {quantity} kg\n"
+                    f"Buyer email: {buyer_email}\n"
+                    f"Delivery address: {delivery_address}\n"
+                    f"Total order value: ₹{total_price:.2f}\n"
+                    "Order status: Pending\n"
+                    "Payment method: Cash on Delivery (COD)\n"
+                    "Payment status: Pending\n\n"
+                    "Please log in to FarmConnect AI to view and "
+                    "manage this order.\n\n"
+                    "Thank you,\n"
+                    "FarmConnect AI Team"
+                )
+            )
+        except Exception:
+            app.logger.exception(
+                "Farmer email notification failed for order %s",
+                order_id
+            )
 
         return jsonify({
+            "message": "Order placed successfully",
+            "order_id": order_id,
+            "status": "Pending",
+            "quantity": quantity,
+            "remaining_stock": available_quantity - quantity,
+            "total_price": total_price,
+            "delivery_address": delivery_address,
+            "payment_method": "COD",
+            "payment_status": "Pending"
+        }), 201
 
-            "message": "Order Placed Successfully",
-
-            "status": "Pending"
-
-        })
-
-
-    except Exception as e:
-
-        print("PLACE ORDER ERROR:", e)
-
+    except Exception:
+        app.logger.exception("PLACE ORDER ERROR")
         return jsonify({
-            "error": str(e)
+            "error": "Unable to place order"
         }), 500
+
 
 
 # =========================================================
@@ -1039,68 +1227,55 @@ def place_order():
 
 @app.route("/farmer-orders/<email>", methods=["GET"])
 def farmer_orders(email):
-
     try:
+        farmer_email = (email or "").strip().lower()
 
         with engine.connect() as conn:
-
             orders = conn.execute(
                 text("""
                     SELECT
                         id,
+                        crop_id,
                         buyer_email,
                         farmer_email,
                         crop_name,
                         quantity,
                         total_price,
                         status,
-                        order_date
+                        order_date,
+                        delivery_address,
+                        payment_method,
+                        payment_status
                     FROM orders
-                    WHERE farmer_email = :email
+                    WHERE LOWER(TRIM(farmer_email)) = :email
                     ORDER BY id DESC
                 """),
-                {
-                    "email": email
-                }
-            ).fetchall()
+                {"email": farmer_email}
+            ).mappings().all()
 
+        result = [
+            {
+                "id": order["id"],
+                "crop_id": order["crop_id"],
+                "buyer_email": order["buyer_email"],
+                "farmer_email": order["farmer_email"],
+                "crop_name": order["crop_name"],
+                "quantity": order["quantity"],
+                "total_price": float(order["total_price"] or 0),
+                "status": order["status"] or "Pending",
+                "order_date": str(order["order_date"]) if order["order_date"] else "",
+                "delivery_address": order["delivery_address"] or "",
+                "payment_method": order["payment_method"] or "COD",
+                "payment_status": order["payment_status"] or "Pending"
+            }
+            for order in orders
+        ]
 
-        result = []
+        return jsonify(result), 200
 
-
-        for order in orders:
-
-            result.append({
-
-                "id": order.id,
-
-                "buyer_email": order.buyer_email,
-
-                "farmer_email": order.farmer_email,
-
-                "crop_name": order.crop_name,
-
-                "quantity": order.quantity,
-
-                "total_price": float(order.total_price),
-
-                "status": order.status or "Pending",
-
-                "order_date": str(order.order_date)
-
-            })
-
-
-        return jsonify(result)
-
-
-    except Exception as e:
-
-        print("FARMER ORDERS ERROR:", e)
-
-        return jsonify({
-            "error": str(e)
-        }), 500
+    except Exception:
+        app.logger.exception("FARMER ORDERS ERROR")
+        return jsonify({"error": "Unable to fetch farmer orders"}), 500
 
 
 # =========================================================
@@ -1109,72 +1284,57 @@ def farmer_orders(email):
 
 @app.route("/buyer-orders/<email>", methods=["GET"])
 def buyer_orders(email):
-
     try:
+        buyer_email = (email or "").strip().lower()
 
         with engine.connect() as conn:
-
             orders = conn.execute(
                 text("""
                     SELECT
                         id,
+                        crop_id,
                         buyer_email,
                         farmer_email,
                         crop_name,
                         quantity,
                         total_price,
                         status,
-                        order_date
+                        order_date,
+                        delivery_address,
+                        payment_method,
+                        payment_status
                     FROM orders
-                    WHERE buyer_email = :email
+                    WHERE LOWER(TRIM(buyer_email)) = :email
                     ORDER BY id DESC
                 """),
-                {
-                    "email": email
-                }
-            ).fetchall()
+                {"email": buyer_email}
+            ).mappings().all()
 
+        result = [
+            {
+                "id": order["id"],
+                "crop_id": order["crop_id"],
+                "buyer_email": order["buyer_email"],
+                "farmer_email": order["farmer_email"],
+                "crop_name": order["crop_name"],
+                "quantity": order["quantity"],
+                "total_price": float(order["total_price"] or 0),
+                "status": order["status"] or "Pending",
+                "order_date": str(order["order_date"]) if order["order_date"] else "",
+                "delivery_address": order["delivery_address"] or "",
+                "payment_method": order["payment_method"] or "COD",
+                "payment_status": order["payment_status"] or "Pending"
+            }
+            for order in orders
+        ]
 
-        result = []
+        return jsonify(result), 200
 
+    except Exception:
+        app.logger.exception("BUYER ORDERS ERROR")
+        return jsonify({"error": "Unable to fetch buyer orders"}), 500
 
-        for order in orders:
-
-            result.append({
-
-                "id": order.id,
-
-                "buyer_email": order.buyer_email,
-
-                "farmer_email": order.farmer_email,
-
-                "crop_name": order.crop_name,
-
-                "quantity": order.quantity,
-
-                "total_price": float(order.total_price),
-
-                "status": order.status or "Pending",
-
-                "order_date": str(order.order_date)
-
-            })
-
-
-        print("BUYER ORDERS:", result)
-
-
-        return jsonify(result)
-
-
-    except Exception as e:
-
-        print("BUYER ORDERS ERROR:", e)
-
-        return jsonify({
-            "error": str(e)
-        }), 500
-        
+    
         
 @app.route("/test-email", methods=["POST"])
 def test_email():
@@ -1213,60 +1373,156 @@ def test_email():
 # UPDATE ORDER STATUS
 # =========================================================
 
+
+# =========================================================
+# UPDATE ORDER STATUS
+# =========================================================
+
+
+# =========================================================
+# UPDATE ORDER STATUS
+# =========================================================
+
+
 @app.route("/update-order/<int:id>", methods=["PUT"])
 def update_order(id):
+    data = request.get_json(silent=True) or {}
 
-    data = request.json
+    new_status = (data.get("status") or "").strip()
+    farmer_email = (data.get("farmer_email") or "").strip().lower()
+
+    allowed_statuses = {
+        "Accepted": ["Pending"],
+        "Rejected": ["Pending"],
+        "Shipped": ["Accepted"],
+        "Delivered": ["Shipped"]
+    }
+
+    if not farmer_email:
+        return jsonify({"error": "Farmer email is required"}), 400
+
+    if new_status not in allowed_statuses:
+        return jsonify({
+            "error": "Invalid status. Choose Accepted, Rejected, Shipped, or Delivered."
+        }), 400
 
     try:
+        with engine.begin() as conn:
+            order = conn.execute(
+                text("""
+                    SELECT
+                        id,
+                        crop_id,
+                        farmer_email,
+                        buyer_email,
+                        crop_name,
+                        quantity,
+                        total_price,
+                        payment_method,
+                        payment_status,
+                        status
+                    FROM orders
+                    WHERE id = :id
+                    FOR UPDATE
+                """),
+                {"id": id}
+            ).mappings().first()
 
-        new_status = data.get("status")
+            if not order:
+                return jsonify({"error": "Order not found"}), 404
 
+            if (order["farmer_email"] or "").strip().lower() != farmer_email:
+                return jsonify({
+                    "error": "This order does not belong to this farmer"
+                }), 403
 
-        if new_status not in ["Pending", "Accepted", "Rejected"]:
+            current_status = order["status"] or "Pending"
 
-            return jsonify({
-                "error": "Invalid order status"
-            }), 400
+            if current_status not in allowed_statuses[new_status]:
+                return jsonify({
+                    "error": f"Cannot change order from {current_status} to {new_status}",
+                    "status": current_status
+                }), 409
 
-
-        with engine.connect() as conn:
+            # Restore stock only when rejecting a pending order.
+            if new_status == "Rejected" and order["crop_id"] is not None:
+                conn.execute(
+                    text("""
+                        UPDATE crops
+                        SET quantity = quantity + :quantity
+                        WHERE id = :crop_id
+                    """),
+                    {
+                        "quantity": int(order["quantity"] or 0),
+                        "crop_id": order["crop_id"]
+                    }
+                )
 
             conn.execute(
                 text("""
                     UPDATE orders
-
                     SET status = :status
-
                     WHERE id = :id
                 """),
                 {
-                    "id": id,
-
-                    "status": new_status
+                    "status": new_status,
+                    "id": id
                 }
             )
 
-            conn.commit()
+            # Save email details before leaving the transaction.
+            buyer_email = (order["buyer_email"] or "").strip().lower()
+            crop_name = order["crop_name"] or "your crop"
+            quantity = int(order["quantity"] or 0)
+            total_price = float(order["total_price"] or 0)
+            payment_method = order["payment_method"] or "COD"
 
+        # The database transaction has succeeded.
+        # Send notification after the transaction so email issues
+        # do not undo a successful order status update.
+        status_messages = {
+            "Accepted": (
+                "Good news! The farmer has accepted your order."
+            ),
+            "Rejected": (
+                "Unfortunately, the farmer has rejected your order. "
+                "Any reserved stock has been restored."
+            ),
+            "Shipped": (
+                "Your order has been shipped by the farmer."
+            ),
+            "Delivered": (
+                "Your order has been marked as delivered."
+            )
+        }
+
+        notify_buyer(
+            buyer_email=buyer_email,
+            subject=f"FarmConnect AI - Order {new_status}",
+            message=(
+                "Hello!\n\n"
+                f"{status_messages[new_status]}\n\n"
+                f"Order ID: {id}\n"
+                f"Crop: {crop_name}\n"
+                f"Quantity: {quantity} kg\n"
+                f"Total price: ₹{total_price:.2f}\n"
+                f"Order status: {new_status}\n"
+                f"Payment method: {payment_method}\n\n"
+                "Thank you for using FarmConnect AI!"
+            )
+        )
 
         return jsonify({
-
-            "message": "Order Updated Successfully",
-
+            "message": "Order status updated successfully",
             "status": new_status
+        }), 200
 
-        })
-
-
-    except Exception as e:
-
-        print("UPDATE ORDER ERROR:", e)
-
+    except Exception:
+        app.logger.exception("UPDATE ORDER ERROR")
         return jsonify({
-            "error": str(e)
+            "error": "Unable to update order"
         }), 500
-        
+
 
 @app.route("/request-password-reset-otp", methods=["POST"])
 
@@ -1479,6 +1735,105 @@ def detect_disease():
                 )
 
 
+@app.route("/confirm-cod-payment/<int:id>", methods=["PUT"])
+def confirm_cod_payment(id):
+    data = request.get_json(silent=True) or {}
+    farmer_email = (data.get("farmer_email") or "").strip().lower()
+
+    if not farmer_email:
+        return jsonify({"error": "Farmer email is required"}), 400
+
+    try:
+        buyer_email = None
+        crop_name = "your order"
+        quantity = 0
+        total_price = 0
+        payment_updated = False
+
+        with engine.begin() as conn:
+            order = conn.execute(
+                text("""
+                    SELECT id, farmer_email, buyer_email, crop_name,
+                           quantity, total_price, status,
+                           payment_method, payment_status
+                    FROM orders
+                    WHERE id = :id
+                    FOR UPDATE
+                """),
+                {"id": id}
+            ).mappings().first()
+
+            if not order:
+                return jsonify({"error": "Order not found"}), 404
+
+            if (order["farmer_email"] or "").strip().lower() != farmer_email:
+                return jsonify({
+                    "error": "This order does not belong to this farmer"
+                }), 403
+
+            if (order["payment_method"] or "").strip().upper() != "COD":
+                return jsonify({
+                    "error": "Payment confirmation is only available for COD orders"
+                }), 400
+
+            if (order["status"] or "").strip() != "Delivered":
+                return jsonify({
+                    "error": "The order must be marked Delivered before confirming payment"
+                }), 409
+
+            if (order["payment_status"] or "Pending").strip().lower() == "paid":
+                return jsonify({
+                    "message": "Payment has already been confirmed",
+                    "payment_status": "Paid"
+                }), 200
+
+            conn.execute(
+                text("""
+                    UPDATE orders
+                    SET payment_status = 'Paid'
+                    WHERE id = :id
+                """),
+                {"id": id}
+            )
+
+            buyer_email = order["buyer_email"]
+            crop_name = order["crop_name"] or "your order"
+            quantity = order["quantity"] or 0
+            total_price = order["total_price"] or 0
+            payment_updated = True
+
+        # Send the email after the database update succeeds.
+        # An email failure should not undo the payment confirmation.
+        if payment_updated and buyer_email:
+            notify_buyer(
+                buyer_email,
+                "FarmConnect AI - COD Payment Confirmed",
+                f"""Hello,
+
+Your Cash on Delivery (COD) payment has been confirmed by the farmer.
+
+Order ID: {id}
+Crop: {crop_name}
+Quantity: {quantity}
+Total Amount: Rs. {total_price}
+Order Status: Delivered
+Payment Status: Paid
+
+Thank you for using FarmConnect AI!
+
+FarmConnect AI Team"""
+            )
+
+        return jsonify({
+            "message": "COD payment confirmed successfully",
+            "payment_status": "Paid"
+        }), 200
+
+    except Exception:
+        app.logger.exception("COD PAYMENT CONFIRMATION ERROR")
+        return jsonify({
+            "error": "Unable to confirm COD payment"
+        }), 500
 
 
 # =========================================================

@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import {
@@ -12,114 +12,195 @@ import {
   Mic,
   MicOff,
   Volume2,
+  AlertTriangle,
+  RefreshCw,
+  Package,
+  CheckCircle2,
 } from "lucide-react";
+import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
 
 function FarmerDashboard() {
   const navigate = useNavigate();
   const { language: appLanguage } = useLanguage();
+
   const recognitionRef = useRef(null);
   const mountedRef = useRef(true);
   const lastSpeechRef = useRef({ text: "", lang: "en-US" });
 
   const languageMap = { en: "en-IN", hi: "hi-IN", kn: "kn-IN" };
-  const [language, setLanguage] = useState(languageMap[appLanguage] || "en-IN");
+
+  const [language, setLanguage] = useState(
+    languageMap[appLanguage] || "en-IN"
+  );
   const [isListening, setIsListening] = useState(false);
-  const [voiceText, setVoiceText] = useState("Click the microphone and speak a command.");
+  const [voiceText, setVoiceText] = useState(
+    "Click the microphone and speak a command."
+  );
   const [assistantResponse, setAssistantResponse] = useState(
     "Hello! I am your FarmConnect assistant. How can I help you today?"
   );
 
+  const [dashboardCrops, setDashboardCrops] = useState([]);
+  const [dashboardOrders, setDashboardOrders] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+  const [weatherError, setWeatherError] = useState("");
+
+  const loadWeather = () => {
+  if (!navigator.geolocation) {
+    setWeatherError("Location is not supported by this browser.");
+    setWeatherLoading(false);
+    return;
+  }
+
+  setWeatherLoading(true);
+  setWeatherError("");
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const { latitude, longitude } = position.coords;
+
+        // Send the user's coordinates to your Flask backend.
+        const response = await api.get("/weather", {
+          params: {
+            lat: latitude,
+            lon: longitude,
+          },
+        });
+
+        setWeather(response.data);
+        setWeatherError("");
+      } catch (error) {
+        console.error("Weather loading failed:", error);
+        setWeatherError("Unable to load current weather.");
+      } finally {
+        setWeatherLoading(false);
+      }
+    },
+    (error) => {
+      console.error("Location error:", error);
+      setWeatherError(
+        "Allow location access to see weather for your current area."
+      );
+      setWeatherLoading(false);
+    },
+    {
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 300000,
+    }
+  );
+};
+
   const translations = {
     "en-IN": {
       welcome: "Welcome Back 👋",
-      subtitle: "Smart Farming Dashboard",
+      subtitle: "Your Farm, Your Business",
       assistant: "FarmConnect Voice Assistant",
-      assistantDesc: "Control your farming dashboard using your voice.",
+      assistantDesc: "Manage your farming activities using your voice.",
       recognized: "Recognized Command",
       response: "Assistant Response",
       repeat: "Repeat Response",
       trySaying: "Try saying:",
       myCrops: "My Crops",
       orders: "Orders",
-      earnings: "Earnings",
+      earnings: "Confirmed Earnings",
       weather: "Weather",
-      sales: "📈 Sales Overview",
-      chart: "Sales Chart Coming Soon",
-      activity: "🌱 Recent Activity",
-      tomato: "Tomato Added",
-      quantity: "Quantity: 50 Kg",
-      today: "Today",
-      orderReceived: "Order Received",
-      potato: "20 Kg Potato",
-      yesterday: "Yesterday",
-      payment: "Payment Received",
-      twoDays: "2 Days Ago",
+      stock: "Available Stock",
+      inventory: "Inventory Watch",
+      recent: "Recent Orders",
+      addCrop: "Add Crop",
+      loading: "Loading dashboard...",
+      refresh: "Refresh",
+      lowStock: "Low stock",
+      noLowStock: "All listed crops have more than 10 kg in stock.",
+      noOrders: "No orders yet. Your orders will appear here.",
+      noCrops: "No crops listed yet.",
+      sales: "Your Farming Snapshot",
+      chart: "Your sales data will appear here as orders arrive.",
+      quantity: "Quantity",
+      status: "Status",
+      payment: "Payment",
       listening: "Listening... Speak now.",
-      selected: "English selected. Click the microphone and speak.",
+      selected: "Language selected. Click the microphone and speak.",
       stop: "Stop listening",
       start: "Start voice command",
-      kannadaNote: "Kannada commands are supported. Spoken replies use English audio if a Kannada voice is unavailable.",
+      lowStockDesc: "These crops may need restocking.",
+      dashboardError: "Unable to refresh dashboard data.",
     },
     "hi-IN": {
       welcome: "वापसी पर स्वागत है 👋",
-      subtitle: "स्मार्ट खेती डैशबोर्ड",
+      subtitle: "आपका खेत, आपका व्यवसाय",
       assistant: "FarmConnect वॉइस असिस्टेंट",
-      assistantDesc: "अपनी आवाज़ से खेती के डैशबोर्ड को नियंत्रित करें।",
+      assistantDesc: "आवाज़ से अपनी खेती की गतिविधियाँ प्रबंधित करें।",
       recognized: "पहचाना गया निर्देश",
       response: "सहायक का जवाब",
       repeat: "जवाब दोबारा सुनें",
       trySaying: "ऐसा बोलकर देखें:",
       myCrops: "मेरी फसलें",
       orders: "ऑर्डर",
-      earnings: "कमाई",
+      earnings: "पुष्ट कमाई",
       weather: "मौसम",
-      sales: "📈 बिक्री का विवरण",
-      chart: "बिक्री चार्ट जल्द उपलब्ध होगा",
-      activity: "🌱 हाल की गतिविधियाँ",
-      tomato: "टमाटर जोड़े गए",
-      quantity: "मात्रा: 50 किलो",
-      today: "आज",
-      orderReceived: "ऑर्डर प्राप्त हुआ",
-      potato: "20 किलो आलू",
-      yesterday: "कल",
-      payment: "भुगतान प्राप्त हुआ",
-      twoDays: "2 दिन पहले",
+      stock: "उपलब्ध स्टॉक",
+      inventory: "स्टॉक की स्थिति",
+      recent: "हाल के ऑर्डर",
+      addCrop: "फसल जोड़ें",
+      loading: "डैशबोर्ड लोड हो रहा है...",
+      refresh: "रीफ्रेश",
+      lowStock: "कम स्टॉक",
+      noLowStock: "सभी फसलों का स्टॉक 10 किलो से अधिक है।",
+      noOrders: "अभी कोई ऑर्डर नहीं है।",
+      noCrops: "अभी कोई फसल सूचीबद्ध नहीं है।",
+      sales: "आपकी खेती की जानकारी",
+      chart: "ऑर्डर आने पर बिक्री की जानकारी यहाँ दिखेगी।",
+      quantity: "मात्रा",
+      status: "स्थिति",
+      payment: "भुगतान",
       listening: "सुन रहा हूँ... अब बोलिए।",
-      selected: "हिंदी चुनी गई है। माइक्रोफ़ोन दबाकर बोलिए।",
+      selected: "भाषा चुनी गई है। माइक्रोफ़ोन दबाकर बोलिए।",
       stop: "सुनना बंद करें",
       start: "वॉइस निर्देश शुरू करें",
-      kannadaNote: "कन्नड़ निर्देश उपलब्ध हैं। कन्नड़ आवाज़ उपलब्ध नहीं होने पर जवाब अंग्रेज़ी में सुनाई देंगे।",
+      lowStockDesc: "इन फसलों में स्टॉक बढ़ाने की आवश्यकता हो सकती है।",
+      dashboardError: "डैशबोर्ड डेटा अपडेट नहीं हो पाया।",
     },
     "kn-IN": {
       welcome: "ಮತ್ತೆ ಸ್ವಾಗತ 👋",
-      subtitle: "ಸ್ಮಾರ್ಟ್ ಕೃಷಿ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+      subtitle: "ನಿಮ್ಮ ಹೊಲ, ನಿಮ್ಮ ವ್ಯವಹಾರ",
       assistant: "FarmConnect ಧ್ವನಿ ಸಹಾಯಕ",
-      assistantDesc: "ನಿಮ್ಮ ಧ್ವನಿಯ ಮೂಲಕ ಕೃಷಿ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ನಿಯಂತ್ರಿಸಿ.",
+      assistantDesc: "ನಿಮ್ಮ ಧ್ವನಿಯಿಂದ ಕೃಷಿ ಚಟುವಟಿಕೆಗಳನ್ನು ನಿರ್ವಹಿಸಿ.",
       recognized: "ಗುರುತಿಸಿದ ಆಜ್ಞೆ",
       response: "ಸಹಾಯಕನ ಪ್ರತಿಕ್ರಿಯೆ",
       repeat: "ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ಮತ್ತೆ ಕೇಳಿ",
       trySaying: "ಹೀಗೆ ಹೇಳಿ:",
       myCrops: "ನನ್ನ ಬೆಳೆಗಳು",
       orders: "ಆರ್ಡರ್‌ಗಳು",
-      earnings: "ಆದಾಯ",
+      earnings: "ದೃಢೀಕೃತ ಆದಾಯ",
       weather: "ಹವಾಮಾನ",
-      sales: "📈 ಮಾರಾಟದ ವಿವರ",
-      chart: "ಮಾರಾಟದ ಚಾರ್ಟ್ ಶೀಘ್ರದಲ್ಲೇ ಬರಲಿದೆ",
-      activity: "🌱 ಇತ್ತೀಚಿನ ಚಟುವಟಿಕೆಗಳು",
-      tomato: "ಟೊಮೆಟೊ ಸೇರಿಸಲಾಗಿದೆ",
-      quantity: "ಪ್ರಮಾಣ: 50 ಕೆಜಿ",
-      today: "ಇಂದು",
-      orderReceived: "ಆರ್ಡರ್ ಸ್ವೀಕರಿಸಲಾಗಿದೆ",
-      potato: "20 ಕೆಜಿ ಆಲೂಗಡ್ಡೆ",
-      yesterday: "ನಿನ್ನೆ",
-      payment: "ಪಾವತಿ ಸ್ವೀಕರಿಸಲಾಗಿದೆ",
-      twoDays: "2 ದಿನಗಳ ಹಿಂದೆ",
+      stock: "ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್",
+      inventory: "ಸ್ಟಾಕ್ ಪರಿಶೀಲನೆ",
+      recent: "ಇತ್ತೀಚಿನ ಆರ್ಡರ್‌ಗಳು",
+      addCrop: "ಬೆಳೆ ಸೇರಿಸಿ",
+      loading: "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+      refresh: "ರಿಫ್ರೆಶ್",
+      lowStock: "ಕಡಿಮೆ ಸ್ಟಾಕ್",
+      noLowStock: "ಎಲ್ಲಾ ಬೆಳೆಗಳಲ್ಲಿ 10 ಕೆಜಿಗಿಂತ ಹೆಚ್ಚು ಸ್ಟಾಕ್ ಇದೆ.",
+      noOrders: "ಇನ್ನೂ ಯಾವುದೇ ಆರ್ಡರ್‌ಗಳಿಲ್ಲ.",
+      noCrops: "ಇನ್ನೂ ಯಾವುದೇ ಬೆಳೆಗಳನ್ನು ಪಟ್ಟಿ ಮಾಡಿಲ್ಲ.",
+      sales: "ನಿಮ್ಮ ಕೃಷಿ ವಿವರಗಳು",
+      chart: "ಆರ್ಡರ್‌ಗಳು ಬಂದಂತೆ ಮಾರಾಟದ ವಿವರ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.",
+      quantity: "ಪ್ರಮಾಣ",
+      status: "ಸ್ಥಿತಿ",
+      payment: "ಪಾವತಿ",
       listening: "ಕೇಳುತ್ತಿದ್ದೇನೆ... ಈಗ ಮಾತನಾಡಿ.",
-      selected: "ಕನ್ನಡ ಆಯ್ಕೆ ಮಾಡಲಾಗಿದೆ. ಮೈಕ್ರೋಫೋನ್ ಒತ್ತಿ ಮಾತನಾಡಿ.",
+      selected: "ಭಾಷೆ ಆಯ್ಕೆ ಮಾಡಲಾಗಿದೆ. ಮೈಕ್ರೋಫೋನ್ ಒತ್ತಿ ಮಾತನಾಡಿ.",
       stop: "ಕೇಳುವುದನ್ನು ನಿಲ್ಲಿಸಿ",
       start: "ಧ್ವನಿ ಆಜ್ಞೆ ಪ್ರಾರಂಭಿಸಿ",
-      kannadaNote: "ಕನ್ನಡ ಆಜ್ಞೆಗಳನ್ನು ಬಳಸಬಹುದು. ಕನ್ನಡ ಧ್ವನಿ ಲಭ್ಯವಿಲ್ಲದಿದ್ದರೆ ಉತ್ತರಗಳು ಇಂಗ್ಲಿಷ್ ಧ್ವನಿಯಲ್ಲಿ ಕೇಳಿಸುತ್ತವೆ.",
+      lowStockDesc: "ಈ ಬೆಳೆಗಳಿಗೆ ಹೆಚ್ಚಿನ ಸ್ಟಾಕ್ ಬೇಕಾಗಬಹುದು.",
+      dashboardError: "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ಡೇಟಾ ಅಪ್‌ಡೇಟ್ ಆಗಲಿಲ್ಲ.",
     },
   };
 
@@ -128,69 +209,181 @@ function FarmerDashboard() {
   const responses = {
     "en-IN": {
       greeting: "Hello! I am your FarmConnect assistant. How can I help you today?",
-      addCrop: "I am opening the Add Crop page for you.",
-      myCrops: "I am opening your crops page.",
-      weather: "I am opening the weather page for you.",
-      orders: "I am opening your orders page.",
-      dashboard: "I am taking you back to your farmer dashboard.",
-      help: "You can say Add Crop, Show My Crops, Check Weather, Show My Orders, or Open Dashboard.",
+      addCrop: "Opening the Add Crop page.",
+      myCrops: "Opening your crops page.",
+      weather: "Opening the weather page.",
+      orders: "Opening your orders page.",
+      dashboard: "You are already on your farmer dashboard.",
+      help: "Say Add Crop, My Crops, Weather, My Orders, or Dashboard.",
       unknown: "Sorry, I did not understand that command. Please try again.",
-      micError: "Voice recognition is not supported in this browser. Please use Google Chrome.",
-      micDenied: "Microphone permission was denied. Please allow microphone access.",
+      micError: "Voice recognition is not supported. Please use Google Chrome.",
+      micDenied: "Microphone permission was denied.",
       noSpeech: "I could not hear anything. Please try again.",
-      network: "There is a network problem. Please check your internet connection.",
+      network: "Network problem. Please check your internet connection.",
     },
     "hi-IN": {
-      greeting: "नमस्ते! मैं आपका फार्म कनेक्ट सहायक हूँ। बताइए, मैं आपकी क्या मदद कर सकता हूँ?",
-      addCrop: "मैं आपके लिए फसल जोड़ने वाला पेज खोल रहा हूँ।",
-      myCrops: "मैं आपकी फसलों का पेज खोल रहा हूँ।",
-      weather: "मैं आपके लिए मौसम का पेज खोल रहा हूँ।",
-      orders: "मैं आपके ऑर्डर का पेज खोल रहा हूँ।",
-      dashboard: "मैं आपको किसान डैशबोर्ड पर वापस ले जा रहा हूँ।",
-      help: "आप फसल जोड़ें, मेरी फसलें दिखाएँ, मौसम दिखाएँ, मेरे ऑर्डर दिखाएँ या डैशबोर्ड खोलें कह सकते हैं।",
-      unknown: "माफ़ कीजिए, मैं आपका निर्देश नहीं समझ पाया। कृपया फिर से कोशिश करें।",
-      micError: "कृपया आवाज़ पहचानने के लिए गूगल क्रोम का उपयोग करें।",
-      micDenied: "माइक्रोफ़ोन की अनुमति नहीं मिली। कृपया माइक्रोफ़ोन की अनुमति दें।",
-      noSpeech: "आपकी आवाज़ सुनाई नहीं दी। कृपया फिर से कोशिश करें।",
-      network: "नेटवर्क में समस्या है। कृपया इंटरनेट कनेक्शन जाँचें।",
+      greeting: "नमस्ते! मैं आपका FarmConnect सहायक हूँ। मैं आपकी कैसे मदद कर सकता हूँ?",
+      addCrop: "फसल जोड़ने वाला पेज खोल रहा हूँ।",
+      myCrops: "आपकी फसलों का पेज खोल रहा हूँ।",
+      weather: "मौसम का पेज खोल रहा हूँ।",
+      orders: "आपके ऑर्डर का पेज खोल रहा हूँ।",
+      dashboard: "आप किसान डैशबोर्ड पर हैं।",
+      help: "फसल जोड़ें, मेरी फसलें, मौसम, मेरे ऑर्डर या डैशबोर्ड बोलें।",
+      unknown: "माफ़ कीजिए, निर्देश समझ नहीं आया। फिर से कोशिश करें।",
+      micError: "कृपया आवाज़ पहचानने के लिए Google Chrome का उपयोग करें।",
+      micDenied: "माइक्रोफ़ोन की अनुमति नहीं मिली।",
+      noSpeech: "आपकी आवाज़ सुनाई नहीं दी। फिर से कोशिश करें।",
+      network: "नेटवर्क समस्या है। इंटरनेट कनेक्शन जाँचें।",
     },
     "kn-IN": {
-      greeting: "ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಫಾರ್ಮ್ ಕನೆಕ್ಟ್ ಸಹಾಯಕ. ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?",
-      addCrop: "ನಿಮಗಾಗಿ ಬೆಳೆ ಸೇರಿಸುವ ಪುಟವನ್ನು ತೆರೆಯುತ್ತಿದ್ದೇನೆ.",
+      greeting: "ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ FarmConnect ಸಹಾಯಕ. ನಾನು ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?",
+      addCrop: "ಬೆಳೆ ಸೇರಿಸುವ ಪುಟವನ್ನು ತೆರೆಯುತ್ತಿದ್ದೇನೆ.",
       myCrops: "ನಿಮ್ಮ ಬೆಳೆಗಳ ಪುಟವನ್ನು ತೆರೆಯುತ್ತಿದ್ದೇನೆ.",
-      weather: "ನಿಮಗಾಗಿ ಹವಾಮಾನ ಪುಟವನ್ನು ತೆರೆಯುತ್ತಿದ್ದೇನೆ.",
+      weather: "ಹವಾಮಾನ ಪುಟವನ್ನು ತೆರೆಯುತ್ತಿದ್ದೇನೆ.",
       orders: "ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳ ಪುಟವನ್ನು ತೆರೆಯುತ್ತಿದ್ದೇನೆ.",
-      dashboard: "ನಿಮ್ಮ ರೈತರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹಿಂತಿರುಗುತ್ತಿದ್ದೇನೆ.",
-      help: "ಬೆಳೆ ಸೇರಿಸು, ನನ್ನ ಬೆಳೆಗಳನ್ನು ತೋರಿಸು, ಹವಾಮಾನ ತೋರಿಸು, ನನ್ನ ಆರ್ಡರ್‌ಗಳನ್ನು ತೋರಿಸು ಅಥವಾ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ತೆರೆಯಿರಿ ಎಂದು ಹೇಳಬಹುದು.",
-      unknown: "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಆಜ್ಞೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.",
-      micError: "ದಯವಿಟ್ಟು ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆಗಾಗಿ ಗೂಗಲ್ ಕ್ರೋಮ್ ಬಳಸಿ.",
-      micDenied: "ಮೈಕ್ರೋಫೋನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಮೈಕ್ರೋಫೋನ್ ಅನುಮತಿ ನೀಡಿ.",
-      noSpeech: "ನಿಮ್ಮ ಧ್ವನಿ ಕೇಳಿಸಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
-      network: "ನೆಟ್‌ವರ್ಕ್ ಸಮಸ್ಯೆ ಇದೆ. ದಯವಿಟ್ಟು ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕ ಪರಿಶೀಲಿಸಿ.",
+      dashboard: "ನೀವು ಈಗಾಗಲೇ ರೈತರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ನಲ್ಲಿದ್ದೀರಿ.",
+      help: "ಬೆಳೆ ಸೇರಿಸಿ, ನನ್ನ ಬೆಳೆಗಳು, ಹವಾಮಾನ, ನನ್ನ ಆರ್ಡರ್‌ಗಳು ಅಥವಾ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ಎಂದು ಹೇಳಿ.",
+      unknown: "ಕ್ಷಮಿಸಿ, ನಿಮ್ಮ ಆಜ್ಞೆ ಅರ್ಥವಾಗಲಿಲ್ಲ. ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.",
+      micError: "ಧ್ವನಿ ಗುರುತಿಸಲು Google Chrome ಬಳಸಿ.",
+      micDenied: "ಮೈಕ್ರೋಫೋನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ.",
+      noSpeech: "ನಿಮ್ಮ ಧ್ವನಿ ಕೇಳಿಸಲಿಲ್ಲ. ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.",
+      network: "ನೆಟ್‌ವರ್ಕ್ ಸಮಸ್ಯೆ ಇದೆ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ.",
     },
   };
 
+  const reply = responses[language] || responses["en-IN"];
+
+  const loadDashboardData = useCallback(async () => {
+    const email = localStorage.getItem("userEmail");
+
+    if (!email) {
+      setDashboardError("User email not found. Please log in again.");
+      setDashboardLoading(false);
+      return;
+    }
+
+    try {
+      const [cropsResponse, ordersResponse] = await Promise.all([
+        api.get("/crops"),
+        api.get(`/farmer-orders/${encodeURIComponent(email)}`),
+      ]);
+
+      const allCrops = Array.isArray(cropsResponse.data)
+        ? cropsResponse.data
+        : [];
+
+      const myCrops = allCrops.filter(
+        (crop) =>
+          crop.farmer_email?.trim().toLowerCase() ===
+          email.trim().toLowerCase()
+      );
+
+      const myOrders = Array.isArray(ordersResponse.data)
+        ? ordersResponse.data
+        : [];
+
+      setDashboardCrops(myCrops);
+      setDashboardOrders(myOrders);
+      setDashboardError("");
+    } catch (error) {
+      console.error("Dashboard data loading failed:", error);
+      setDashboardError(ui.dashboardError);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, [ui.dashboardError]);
+
   useEffect(() => {
     mountedRef.current = true;
+
     return () => {
       mountedRef.current = false;
+
       try {
         recognitionRef.current?.abort();
       } catch (error) {
         console.log("Recognition cleanup:", error);
       }
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
+  useEffect(() => {
+  loadWeather();
+
+  const intervalId = setInterval(loadWeather, 15 * 60 * 1000);
+
+  return () => clearInterval(intervalId);
+}, []); 
 
   useEffect(() => {
     const nextLanguage = languageMap[appLanguage] || "en-IN";
+
     if (nextLanguage !== language) {
       setLanguage(nextLanguage);
-      setAssistantResponse(responses[nextLanguage].greeting);
-      setVoiceText(translations[nextLanguage].selected);
+      setAssistantResponse(
+        responses[nextLanguage]?.greeting || responses["en-IN"].greeting
+      );
+      setVoiceText(
+        translations[nextLanguage]?.selected || translations["en-IN"].selected
+      );
     }
-  }, [appLanguage]);
+  }, [appLanguage, language]);
+
+  useEffect(() => {
+    loadDashboardData();
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadDashboardData();
+      }
+    }, 5000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadDashboardData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadDashboardData]);
+
+  const totalCrops = dashboardCrops.length;
+  const totalOrders = dashboardOrders.length;
+
+  const confirmedEarnings = dashboardOrders
+    .filter(
+      (order) =>
+        String(order.payment_status || "").toLowerCase() === "paid"
+    )
+    .reduce(
+      (sum, order) => sum + Number(order.total_price || 0),
+      0
+    );
+
+  const totalAvailableStock = dashboardCrops.reduce(
+    (sum, crop) => sum + Number(crop.quantity || 0),
+    0
+  );
+
+  const lowStockCrops = dashboardCrops.filter(
+    (crop) => Number(crop.quantity || 0) <= 10
+  );
+
+  const recentOrders = [...dashboardOrders]
+    .sort(
+      (a, b) =>
+        new Date(b.created_at || 0).getTime() -
+        new Date(a.created_at || 0).getTime()
+    )
+    .slice(0, 4);
 
   const getSpokenText = (message, englishFallback) => {
     if (language === "kn-IN") {
@@ -199,6 +392,7 @@ function FarmerDashboard() {
         lang: "en-US",
       };
     }
+
     return {
       text: message,
       lang: language === "hi-IN" ? "hi-IN" : "en-US",
@@ -207,6 +401,7 @@ function FarmerDashboard() {
 
   const speak = (message, onFinished, englishFallback) => {
     if (!mountedRef.current) return;
+
     setAssistantResponse(message);
 
     if (!("speechSynthesis" in window)) {
@@ -216,6 +411,7 @@ function FarmerDashboard() {
 
     const spoken = getSpokenText(message, englishFallback);
     lastSpeechRef.current = spoken;
+
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(spoken.text);
@@ -224,108 +420,112 @@ function FarmerDashboard() {
     utterance.pitch = 1;
     utterance.volume = 1;
 
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      if (mountedRef.current && onFinished) onFinished();
-    };
-
     utterance.onstart = () => {
       if (mountedRef.current) setVoiceText("Assistant is speaking...");
     };
+
     utterance.onend = () => {
-      if (mountedRef.current) setVoiceText("Response completed.");
-      finish();
+      if (mountedRef.current) {
+        setVoiceText("Response completed.");
+        onFinished?.();
+      }
     };
+
     utterance.onerror = (event) => {
       console.error("Speech synthesis error:", event.error);
       if (mountedRef.current) {
-        setVoiceText("Could not play the spoken response. Press Repeat Response to try again.");
+        setVoiceText("Could not play the response. Please try again.");
       }
     };
 
     const voice = window.speechSynthesis.getVoices().find(
       (item) => item.lang.toLowerCase() === spoken.lang.toLowerCase()
     );
+
     if (voice) utterance.voice = voice;
 
-    try {
-      window.speechSynthesis.speak(utterance);
-    } catch (error) {
-      console.error("Speech error:", error);
-      setVoiceText("Speech could not start. Press Repeat Response to retry.");
-    }
+    window.speechSynthesis.speak(utterance);
   };
 
   const normalizeText = (value) =>
-    value.toLowerCase().normalize("NFC").replace(/[.,!?;:।]/g, " ").replace(/\s+/g, " ").trim();
+    value
+      .toLowerCase()
+      .normalize("NFC")
+      .replace(/[.,!?;:।]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
   const handleVoiceCommand = (command) => {
     const text = normalizeText(command);
-    const reply = responses[language];
     setVoiceText(`You said: "${command}"`);
 
     const commands = [
       {
         words: [
-          "add crop", "add a crop", "add new crop", "new crop", "create crop",
-          "register crop", "post crop", "sell crop", "फसल जोड़ो", "फसल जोड़ें",
-          "नई फसल", "ಹೊಸ ಬೆಳೆ", "ಬೆಳೆ ಸೇರಿಸು", "ಬೆಳೆ ಸೇರಿಸಿ",
+          "add crop", "add a crop", "add new crop", "new crop",
+          "create crop", "register crop", "post crop", "sell crop",
+          "फसल जोड़ो", "फसल जोड़ें", "नई फसल", "ಹೊಸ ಬೆಳೆ",
+          "ಬೆಳೆ ಸೇರಿಸು", "ಬೆಳೆ ಸೇರಿಸಿ",
         ],
         response: reply.addCrop,
-        fallback: "I am opening the Add Crop page for you.",
+        fallback: "Opening the Add Crop page.",
         path: "/add-crop",
-        label: "Add Crop",
+        label: ui.addCrop,
       },
       {
         words: [
-          "show my crops", "my crops", "my crop", "show crops", "view my crops",
-          "see my crops", "list my crops", "crop list", "मेरी फसल", "फसल दिखाओ",
-          "ನನ್ನ ಬೆಳೆ", "ನನ್ನ ಬೆಳೆಗಳನ್ನು ತೋರಿಸು", "ಬೆಳೆ ತೋರಿಸು",
+          "show my crops", "my crops", "my crop", "show crops",
+          "view my crops", "see my crops", "list my crops", "crop list",
+          "मेरी फसल", "फसल दिखाओ", "ನನ್ನ ಬೆಳೆ",
+          "ನನ್ನ ಬೆಳೆಗಳನ್ನು ತೋರಿಸು", "ಬೆಳೆ ತೋರಿಸು",
         ],
         response: reply.myCrops,
-        fallback: "I am opening your crops page.",
+        fallback: "Opening your crops page.",
         path: "/my-crops",
-        label: "My Crops",
+        label: ui.myCrops,
       },
       {
         words: [
-          "weather", "show weather", "check weather", "weather today", "today weather",
-          "what is the weather", "temperature", "forecast", "rain", "मौसम",
-          "आज का मौसम", "मौसम दिखाओ", "ಹವಾಮಾನ", "ಇಂದಿನ ಹವಾಮಾನ", "ಮಳೆ",
+          "weather", "show weather", "check weather", "weather today",
+          "today weather", "what is the weather", "temperature",
+          "forecast", "rain", "मौसम", "आज का मौसम", "मौसम दिखाओ",
+          "ಹವಾಮಾನ", "ಇಂದಿನ ಹವಾಮಾನ", "ಮಳೆ",
         ],
         response: reply.weather,
-        fallback: "I am opening the weather page for you.",
+        fallback: "Opening the weather page.",
         path: "/weather",
-        label: "Weather",
+        label: ui.weather,
       },
       {
         words: [
-          "show my orders", "my orders", "show orders", "view orders", "view my orders",
-          "check orders", "pending orders", "orders", "order", "मेरे ऑर्डर",
-          "ऑर्डर दिखाओ", "ನನ್ನ ಆರ್ಡರ್", "ನನ್ನ ಆರ್ಡರ್‌ಗಳು", "ಆರ್ಡರ್ ತೋರಿಸು",
+          "show my orders", "my orders", "show orders", "view orders",
+          "view my orders", "check orders", "pending orders", "orders",
+          "order", "मेरे ऑर्डर", "ऑर्डर दिखाओ", "ನನ್ನ ಆರ್ಡರ್",
+          "ನನ್ನ ಆರ್ಡರ್‌ಗಳು", "ಆರ್ಡರ್ ತೋರಿಸು",
         ],
         response: reply.orders,
-        fallback: "I am opening your orders page.",
+        fallback: "Opening your orders page.",
         path: "/orders",
-        label: "My Orders",
+        label: ui.orders,
       },
       {
         words: [
-          "open dashboard", "go to dashboard", "main dashboard", "dashboard",
-          "go home", "home", "main page", "डैशबोर्ड", "होम", "ಮುಖ್ಯ ಪುಟ",
-          "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್", "ಹೋಮ್",
+          "open dashboard", "go to dashboard", "main dashboard",
+          "dashboard", "go home", "home", "main page",
+          "डैशबोर्ड", "होम", "ಮುಖ್ಯ ಪುಟ", "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್", "ಹೋಮ್",
         ],
         response: reply.dashboard,
-        fallback: "I am taking you back to your farmer dashboard.",
+        fallback: "You are on your farmer dashboard.",
         path: "/farmer-dashboard",
         label: "Dashboard",
       },
       {
-        words: ["help", "commands", "what can you do", "what can i say", "मदद", "सहायता", "ಸಹಾಯ"],
+        words: [
+          "help", "commands", "what can you do", "what can i say",
+          "मदद", "सहायता", "ಸಹಾಯ",
+        ],
         response: reply.help,
-        fallback: "You can say Add Crop, Show My Crops, Check Weather, Show My Orders, or Open Dashboard.",
+        fallback: "Say Add Crop, My Crops, Weather, My Orders, or Dashboard.",
         path: null,
         label: "Help",
       },
@@ -337,14 +537,22 @@ function FarmerDashboard() {
 
     if (matchedCommand) {
       setVoiceText(`You said: "${command}" — ${matchedCommand.label}`);
-      speak(matchedCommand.response, () => {
-        if (mountedRef.current && matchedCommand.path) navigate(matchedCommand.path);
-      }, matchedCommand.fallback);
+
+      speak(
+        matchedCommand.response,
+        () => {
+          if (mountedRef.current && matchedCommand.path) {
+            navigate(matchedCommand.path);
+          }
+        },
+        matchedCommand.fallback
+      );
+
       return;
     }
 
     setVoiceText(`You said: "${command}" — Command not recognized`);
-    speak(reply.unknown, null, "Sorry, I did not understand that command. Please try again.");
+    speak(reply.unknown, null, "Sorry, I did not understand that command.");
   };
 
   const startListening = () => {
@@ -354,13 +562,21 @@ function FarmerDashboard() {
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
     if (!SpeechRecognition) {
-      speak(responses[language].micError, null, "Voice recognition is not supported in this browser. Please use Google Chrome.");
+      speak(
+        reply.micError,
+        null,
+        "Voice recognition is not supported. Please use Google Chrome."
+      );
       return;
     }
 
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
@@ -371,7 +587,7 @@ function FarmerDashboard() {
 
     recognition.onstart = () => {
       setIsListening(true);
-      setVoiceText(translations[language].listening);
+      setVoiceText(ui.listening);
     };
 
     recognition.onresult = (event) => {
@@ -380,15 +596,15 @@ function FarmerDashboard() {
 
     recognition.onerror = (event) => {
       setIsListening(false);
-      const reply = responses[language];
+
       if (event.error === "not-allowed") {
-        speak(reply.micDenied, null, "Microphone permission was denied. Please allow microphone access.");
+        speak(reply.micDenied);
       } else if (event.error === "no-speech") {
-        speak(reply.noSpeech, null, "I could not hear anything. Please try again.");
+        speak(reply.noSpeech);
       } else if (event.error === "network") {
-        speak(reply.network, null, "There is a network problem. Please check your internet connection.");
+        speak(reply.network);
       } else if (event.error !== "aborted") {
-        speak(reply.unknown, null, "Sorry, something went wrong. Please try again.");
+        speak(reply.unknown);
       }
     };
 
@@ -405,20 +621,27 @@ function FarmerDashboard() {
 
   const changeLanguage = (newLanguage) => {
     setLanguage(newLanguage);
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
     setAssistantResponse(responses[newLanguage].greeting);
     setVoiceText(translations[newLanguage].selected);
   };
 
   const repeatResponse = () => {
     const lastSpeech = lastSpeechRef.current;
+
     if (!lastSpeech.text) {
-      speak(assistantResponse, null, "Hello! I am your FarmConnect assistant. How can I help you today?");
+      speak(reply.greeting);
       return;
     }
+
     if (!("speechSynthesis" in window)) return;
 
     window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(lastSpeech.text);
     utterance.lang = lastSpeech.lang;
     utterance.rate = 0.9;
@@ -427,183 +650,455 @@ function FarmerDashboard() {
     const voice = window.speechSynthesis.getVoices().find(
       (item) => item.lang.toLowerCase() === lastSpeech.lang.toLowerCase()
     );
+
     if (voice) utterance.voice = voice;
 
     utterance.onerror = (event) => {
       console.error("Repeat speech error:", event.error);
       setVoiceText("Could not play the response. Please try again.");
     };
+
     window.speechSynthesis.speak(utterance);
   };
 
+  const formatMoney = (value) =>
+    `₹${Number(value || 0).toLocaleString("en-IN")}`;
+
+  const statusColor = (status) => {
+    switch (String(status || "").toLowerCase()) {
+      case "delivered":
+        return "bg-emerald-100 text-emerald-800";
+      case "shipped":
+        return "bg-blue-100 text-blue-800";
+      case "accepted":
+        return "bg-indigo-100 text-indigo-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-amber-100 text-amber-800";
+    }
+  };
+
   return (
-    <div className="bg-gray-100 min-h-screen">
+    <div className="min-h-screen bg-[#f4f7f0]">
       <Sidebar />
 
-      <div className="ml-72">
-        <div className="bg-white shadow-md px-10 py-5 flex justify-between items-center">
+      <main className="ml-72 min-h-screen">
+        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-green-100 bg-white/95 px-8 py-5 shadow-sm backdrop-blur">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">{ui.welcome}</h1>
-            <p className="text-gray-500 mt-1">{ui.subtitle}</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-emerald-700">
+              FARMCONNECT AI
+            </p>
+            <h1 className="mt-1 text-3xl font-bold text-gray-900">
+              {ui.welcome}
+            </h1>
+            <p className="mt-1 text-gray-500">{ui.subtitle}</p>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 text-yellow-500">
-              <Sun />
-              <span>28°C</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-amber-700">
+                      <Sun size={20} />
+                      <span className="font-semibold">
+                      {weatherLoading
+                          ? "Loading..."
+                          : weather
+                          ? `${Math.round(weather.temperature)}°C`
+                          : "--°C"}
+                      </span>
+           </div>
+
+            <button
+              onClick={loadDashboardData}
+              className="rounded-xl border border-green-200 bg-white p-3 text-green-800 transition hover:bg-green-50"
+              title={ui.refresh}
+              aria-label={ui.refresh}
+            >
+              <RefreshCw size={20} />
+            </button>
+
+            <div className="rounded-full bg-green-100 p-3 text-green-800">
+              <Bell size={22} />
             </div>
-            <Bell className="text-gray-600 cursor-pointer" />
+
             <img
-              src="https://ui-avatars.com/api/?name=Farmer"
-              alt="profile"
-              className="w-12 h-12 rounded-full"
+              src="https://ui-avatars.com/api/?name=Farmer&background=166534&color=fff"
+              alt="Farmer profile"
+              className="h-11 w-11 rounded-full border-2 border-green-100"
             />
           </div>
-        </div>
+        </header>
 
-        <div className="p-10">
-          <div className="bg-gradient-to-r from-green-700 to-green-500 rounded-3xl shadow-xl p-8 mb-10 text-white">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <Volume2 size={32} />
-                  <h2 className="text-2xl font-bold">{ui.assistant}</h2>
+        <div className="space-y-8 p-6 md:p-8">
+          {dashboardError && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+              <span>{dashboardError}</span>
+              <button
+                onClick={loadDashboardData}
+                className="font-semibold underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-green-950 via-green-800 to-emerald-600 p-7 text-white shadow-xl md:p-9">
+            <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
+              <div className="max-w-2xl">
+                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm">
+                  <Sprout size={17} />
+                  Your farm at a glance
                 </div>
 
-                <p className="mt-2 text-green-100">{ui.assistantDesc}</p>
+                <h2 className="text-3xl font-bold leading-tight md:text-4xl">
+                  Grow smarter.
+                  <br />
+                  Sell better.
+                </h2>
 
-                <div className="mt-5 bg-white/10 rounded-xl p-4">
-                  <p className="text-sm text-green-100">{ui.recognized}</p>
-                  <p className="font-semibold mt-1 break-words">{voiceText}</p>
-                </div>
-
-                <div className="mt-4 bg-white/10 rounded-xl p-4">
-                  <p className="text-sm text-green-100">{ui.response}</p>
-                  <p className="font-semibold mt-1 break-words">{assistantResponse}</p>
-                </div>
+                <p className="mt-3 max-w-xl leading-7 text-green-100">
+                  Keep track of your crops, monitor stock, manage orders and
+                  follow your confirmed payments from one place.
+                </p>
 
                 <button
-                  onClick={repeatResponse}
-                  className="mt-4 flex items-center gap-2 bg-white/15 hover:bg-white/25 px-4 py-2 rounded-xl transition"
+                  onClick={() => navigate("/add-crop")}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-green-900 shadow-lg transition hover:bg-green-50"
                 >
-                  <Volume2 size={18} />
-                  {ui.repeat}
+                  <Sprout size={19} />
+                  {ui.addCrop}
                 </button>
-
-                {language === "kn-IN" && (
-                  <p className="text-sm text-green-100 mt-3">{ui.kannadaNote}</p>
-                )}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <select
-                  value={language}
-                  onChange={(e) => changeLanguage(e.target.value)}
-                  className="bg-white text-gray-800 px-4 py-3 rounded-xl font-semibold outline-none"
-                >
-                  <option value="en-IN">English</option>
-                  <option value="hi-IN">हिंदी</option>
-                  <option value="kn-IN">ಕನ್ನಡ</option>
-                </select>
+              <div className="w-full max-w-md rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-white/15 p-3">
+                    <Volume2 size={25} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">{ui.assistant}</h3>
+                    <p className="text-sm text-green-100">
+                      {ui.assistantDesc}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <label className="mb-2 block text-sm text-green-100">
+                    Language
+                  </label>
+                  <select
+                    value={language}
+                    onChange={(e) => changeLanguage(e.target.value)}
+                    className="w-full rounded-xl bg-white px-4 py-3 font-semibold text-gray-900 outline-none"
+                  >
+                    <option value="en-IN">English</option>
+                    <option value="hi-IN">हिंदी</option>
+                    <option value="kn-IN">ಕನ್ನಡ</option>
+                  </select>
+                </div>
 
                 <button
                   onClick={startListening}
-                  className={`w-20 h-20 rounded-full bg-white text-green-700 flex items-center justify-center shadow-lg transition ${
-                    isListening ? "scale-110 ring-4 ring-white/40" : "hover:scale-105"
+                  className={`mt-4 flex w-full items-center justify-center gap-3 rounded-xl px-5 py-4 font-bold transition ${
+                    isListening
+                      ? "bg-red-100 text-red-800"
+                      : "bg-white text-green-900 hover:bg-green-50"
                   }`}
                   title={isListening ? ui.stop : ui.start}
                 >
-                  {isListening ? <MicOff size={36} /> : <Mic size={36} />}
+                  {isListening ? <MicOff size={22} /> : <Mic size={22} />}
+                  {isListening ? ui.stop : ui.start}
                 </button>
-              </div>
-            </div>
 
-            <div className="mt-6">
-              <p className="font-semibold mb-3">{ui.trySaying}</p>
-              <div className="flex flex-wrap gap-3">
-                <span className="bg-white/10 px-4 py-2 rounded-full text-sm">🎤 {ui.myCrops}</span>
-                <span className="bg-white/10 px-4 py-2 rounded-full text-sm">🎤 {ui.weather}</span>
-                <span className="bg-white/10 px-4 py-2 rounded-full text-sm">🎤 {ui.orders}</span>
-                <span className="bg-white/10 px-4 py-2 rounded-full text-sm">🎤 {ui.assistant === "FarmConnect Voice Assistant" ? "Add Crop" : ui.assistant === "FarmConnect वॉइस असिस्टेंट" ? "फसल जोड़ें" : "ಬೆಳೆ ಸೇರಿಸಿ"}</span>
-                <span className="bg-white/10 px-4 py-2 rounded-full text-sm">🎤 Help / सहायता / ಸಹಾಯ</span>
-              </div>
-            </div>
-          </div>
+                <div className="mt-4 rounded-xl bg-black/15 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-green-100">
+                    {ui.recognized}
+                  </p>
+                  <p className="mt-1 break-words font-medium">{voiceText}</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-            <div
-              onClick={() => navigate("/my-crops")}
-              className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-2xl transition cursor-pointer"
-            >
-              <Sprout className="text-green-600" size={40} />
-              <h2 className="text-4xl font-bold mt-4">12</h2>
-              <p className="text-gray-500 mt-2">{ui.myCrops}</p>
-            </div>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-green-100">
+                    {ui.response}
+                  </p>
+                  <p className="mt-1 break-words text-sm">
+                    {assistantResponse}
+                  </p>
 
-            <div
-              onClick={() => navigate("/orders")}
-              className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-2xl transition cursor-pointer"
-            >
-              <ShoppingBag className="text-blue-600" size={40} />
-              <h2 className="text-4xl font-bold mt-4">5</h2>
-              <p className="text-gray-500 mt-2">{ui.orders}</p>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <IndianRupee className="text-green-700" size={40} />
-              <h2 className="text-4xl font-bold mt-4">₹12,500</h2>
-              <p className="text-gray-500 mt-2">{ui.earnings}</p>
-            </div>
-
-            <div
-              onClick={() => navigate("/weather")}
-              className="bg-white rounded-2xl shadow-lg p-8 hover:shadow-2xl cursor-pointer transition"
-            >
-              <CloudSun className="text-orange-500" size={40} />
-              <h2 className="text-4xl font-bold mt-4">28°C</h2>
-              <p className="text-gray-500 mt-2">{ui.weather}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10">
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold mb-6">{ui.sales}</h2>
-              <div className="h-64 flex items-center justify-center border-2 border-dashed rounded-xl text-gray-400 text-xl">
-                {ui.chart}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold mb-6">{ui.activity}</h2>
-              <div className="space-y-5">
-                <div className="flex justify-between border-b pb-3">
-                  <div>
-                    <p className="font-semibold">{ui.tomato}</p>
-                    <p className="text-gray-500 text-sm">{ui.quantity}</p>
-                  </div>
-                  <span className="text-green-600 font-bold">{ui.today}</span>
+                  <button
+                    onClick={repeatResponse}
+                    className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-white underline decoration-white/50 underline-offset-4"
+                  >
+                    <Volume2 size={16} />
+                    {ui.repeat}
+                  </button>
                 </div>
 
-                <div className="flex justify-between border-b pb-3">
-                  <div>
-                    <p className="font-semibold">{ui.orderReceived}</p>
-                    <p className="text-gray-500 text-sm">{ui.potato}</p>
-                  </div>
-                  <span className="text-blue-600 font-bold">{ui.yesterday}</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <div>
-                    <p className="font-semibold">{ui.payment}</p>
-                    <p className="text-gray-500 text-sm">₹2500</p>
-                  </div>
-                  <span className="text-purple-600 font-bold">{ui.twoDays}</span>
-                </div>
+                <p className="mt-3 text-xs text-green-100">
+                  {ui.trySaying} Add Crop · My Crops · Weather · My Orders · Help
+                </p>
               </div>
             </div>
-          </div>
+          </section>
+
+          <section>
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {ui.sales}
+                </h2>
+                <p className="mt-1 text-gray-500">
+                  Live information from your FarmConnect account
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                Auto-refreshing
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <button
+                onClick={() => navigate("/my-crops")}
+                className="rounded-2xl border border-green-100 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
+                    <Sprout size={25} />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Inventory
+                  </span>
+                </div>
+                <p className="mt-5 text-3xl font-bold text-gray-900">
+                  {dashboardLoading ? "…" : totalCrops}
+                </p>
+                <p className="mt-1 font-medium text-gray-500">{ui.myCrops}</p>
+              </button>
+
+              <button
+                onClick={() => navigate("/my-crops")}
+                className="rounded-2xl border border-green-100 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="rounded-xl bg-lime-50 p-3 text-lime-700">
+                    <Package size={25} />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Stock
+                  </span>
+                </div>
+                <p className="mt-5 text-3xl font-bold text-gray-900">
+                  {dashboardLoading ? "…" : `${totalAvailableStock} kg`}
+                </p>
+                <p className="mt-1 font-medium text-gray-500">{ui.stock}</p>
+              </button>
+
+              <button
+                onClick={() => navigate("/orders")}
+                className="rounded-2xl border border-blue-100 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="rounded-xl bg-blue-50 p-3 text-blue-700">
+                    <ShoppingBag size={25} />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Activity
+                  </span>
+                </div>
+                <p className="mt-5 text-3xl font-bold text-gray-900">
+                  {dashboardLoading ? "…" : totalOrders}
+                </p>
+                <p className="mt-1 font-medium text-gray-500">{ui.orders}</p>
+              </button>
+
+              <div className="rounded-2xl border border-amber-100 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="rounded-xl bg-amber-50 p-3 text-amber-700">
+                    <IndianRupee size={25} />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Payments
+                  </span>
+                </div>
+                <p className="mt-5 break-words text-3xl font-bold text-gray-900">
+                  {dashboardLoading ? "…" : formatMoney(confirmedEarnings)}
+                </p>
+                <p className="mt-1 font-medium text-gray-500">{ui.earnings}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <div className="rounded-2xl border border-amber-100 bg-white p-6 shadow-sm md:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    <AlertTriangle className="mr-2 inline text-amber-600" size={22} />
+                    {ui.inventory}
+                  </h2>
+                  <p className="mt-2 text-sm text-gray-500">{ui.lowStockDesc}</p>
+                </div>
+                <span className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
+                  {dashboardLoading ? "…" : lowStockCrops.length}
+                </span>
+              </div>
+
+              {dashboardLoading ? (
+                <p className="mt-5 text-gray-500">{ui.loading}</p>
+              ) : lowStockCrops.length === 0 ? (
+                <div className="mt-5 rounded-xl border border-green-100 bg-green-50 p-5 text-green-800">
+                  <CheckCircle2 className="mr-2 inline" size={20} />
+                  {ui.noLowStock}
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {lowStockCrops.slice(0, 5).map((crop) => (
+                    <div
+                      key={crop.id}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-amber-100 bg-amber-50/70 p-4"
+                    >
+                      <div>
+                        <p className="font-bold text-gray-800">{crop.crop_name}</p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          {crop.category || "Crop"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-amber-800">
+                          {Number(crop.quantity || 0)} kg
+                        </p>
+                        <p className="text-xs text-amber-700">{ui.lowStock}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => navigate("/my-crops")}
+                className="mt-5 w-full rounded-xl border border-green-200 px-4 py-3 font-semibold text-green-800 transition hover:bg-green-50"
+              >
+                {ui.myCrops} →
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {ui.recent}
+                  </h2>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Latest orders from your buyers
+                  </p>
+                </div>
+                <div className="rounded-xl bg-blue-50 p-3 text-blue-700">
+                  <ShoppingBag size={23} />
+                </div>
+              </div>
+
+              {dashboardLoading ? (
+                <p className="mt-5 text-gray-500">{ui.loading}</p>
+              ) : recentOrders.length === 0 ? (
+                <div className="mt-5 rounded-xl bg-gray-50 p-5 text-gray-500">
+                  {ui.noOrders}
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {recentOrders.map((order, index) => (
+                    <div
+                      key={order.id ?? index}
+                      className="rounded-xl border border-gray-100 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {order.crop_name || "Crop order"}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {ui.quantity}: {order.quantity ?? "—"} kg
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-gray-700">
+                            {formatMoney(order.total_price)}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor(order.status)}`}
+                        >
+                          {order.status || "Pending"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-sm">
+                        <span className="text-gray-500">{ui.payment}</span>
+                        <span
+                          className={`font-semibold ${
+                            String(order.payment_status || "").toLowerCase() === "paid"
+                              ? "text-emerald-700"
+                              : "text-amber-700"
+                          }`}
+                        >
+                          {order.payment_status || "Pending"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => navigate("/orders")}
+                className="mt-5 w-full rounded-xl bg-gray-900 px-4 py-3 font-semibold text-white transition hover:bg-gray-800"
+              >
+                {ui.orders} →
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
+                <CloudSun size={25} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Farming at a glance
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Your inventory and orders update automatically while this page is open.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-xl bg-green-50 p-4">
+                <p className="text-sm text-green-800">Listed crop varieties</p>
+                <p className="mt-1 text-2xl font-bold text-green-950">
+                  {dashboardLoading ? "…" : totalCrops}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-blue-50 p-4">
+                <p className="text-sm text-blue-800">Orders received</p>
+                <p className="mt-1 text-2xl font-bold text-blue-950">
+                  {dashboardLoading ? "…" : totalOrders}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-amber-50 p-4">
+                <p className="text-sm text-amber-800">Crops needing attention</p>
+                <p className="mt-1 text-2xl font-bold text-amber-950">
+                  {dashboardLoading ? "…" : lowStockCrops.length}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <footer className="pb-3 text-center text-sm text-gray-400">
+            FarmConnect AI · Smart farming, connected markets
+          </footer>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

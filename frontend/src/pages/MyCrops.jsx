@@ -18,9 +18,33 @@ function MyCrops() {
   const [detecting, setDetecting] = useState(false);
   const [diseaseError, setDiseaseError] = useState("");
 
-  useEffect(() => {
-    loadCrops();
-  }, []);
+   useEffect(() => {
+  loadCrops();
+
+  // Refresh stock every 5 seconds
+  const intervalId = setInterval(() => {
+    if (document.visibilityState === "visible") {
+      loadCrops();
+    }
+  }, 5000);
+
+  // Refresh when the farmer returns to this browser tab
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      loadCrops();
+    }
+  };
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  return () => {
+    clearInterval(intervalId);
+    document.removeEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+  };
+}, []);
 
   useEffect(() => {
     if (!leafImage) {

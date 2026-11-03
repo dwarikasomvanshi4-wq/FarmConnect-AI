@@ -39,8 +39,8 @@ function Earnings() {
   }, [farmerEmail]);
 
   const pendingOrders = orders.filter(
-    (order) => order.status === "Pending"
-  );
+  (order) => ["Pending", "Accepted"].includes(order.status)
+);
 
   const acceptedOrders = orders.filter(
     (order) => order.status === "Accepted"
@@ -50,12 +50,43 @@ function Earnings() {
     (order) => order.status === "Rejected"
   );
 
+  const shippedOrders = orders.filter(
+    (order) => order.status === "Shipped"
+  );
+
+  const deliveredOrders = orders.filter(
+    (order) => order.status === "Delivered"
+  );
+
+  const completedSalesValue = deliveredOrders.reduce(
+    (total, order) => total + Number(order.total_price || 0),
+    0
+  );
+
   const acceptedOrderValue = acceptedOrders.reduce(
     (total, order) => total + Number(order.total_price || 0),
     0
   );
 
   const pendingOrderValue = pendingOrders.reduce(
+    (total, order) => total + Number(order.total_price || 0),
+    0
+  );
+
+  const paidOrders = orders.filter(
+  (order) => (order.payment_status || "").toLowerCase() === "paid"
+);
+
+const pendingPaymentOrders = orders.filter(
+  (order) => (order.payment_status || "Pending").toLowerCase() !== "paid"
+);
+
+  const confirmedPaymentsValue = paidOrders.reduce(
+    (total, order) => total + Number(order.total_price || 0),
+    0
+  );
+
+  const pendingPaymentValue = pendingPaymentOrders.reduce(
     (total, order) => total + Number(order.total_price || 0),
     0
   );
@@ -112,7 +143,7 @@ function Earnings() {
         <h1 style={{ marginBottom: 8 }}>My Earnings</h1>
 
         <p style={{ color: "#718176", lineHeight: 1.7 }}>
-          Track the value and status of orders placed for your crops.
+          Track completed sales, payment status, and orders placed for your crops.
         </p>
 
         {error && (
@@ -141,13 +172,25 @@ function Earnings() {
             >
               <div style={cardStyle}>
                 <p style={{ color: "#718176", marginTop: 0 }}>
-                  Accepted Order Value
+                  Completed Sales Value
                 </p>
                 <h2 style={{ color: "#176b42", marginBottom: 8 }}>
-                  {money(acceptedOrderValue)}
+                  {money(completedSalesValue)}
                 </h2>
                 <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  {acceptedOrders.length} accepted order(s)
+                  {deliveredOrders.length} delivered order(s)
+                </p>
+              </div>
+
+              <div style={cardStyle}>
+                <p style={{ color: "#718176", marginTop: 0 }}>
+                  Accepted Orders
+                </p>
+                <h2 style={{ color: "#2766a3", marginBottom: 8 }}>
+                  {acceptedOrders.length}
+                </h2>
+                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
+                  Order value: {money(acceptedOrderValue)}
                 </p>
               </div>
 
@@ -171,7 +214,43 @@ function Earnings() {
                   {rejectedOrders.length}
                 </h2>
                 <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  Not included in accepted order value
+                  Excluded from completed sales
+                </p>
+              </div>
+
+              <div style={cardStyle}>
+                <p style={{ color: "#718176", marginTop: 0 }}>
+                  Shipped Orders
+                </p>
+                <h2 style={{ color: "#805ad5", marginBottom: 8 }}>
+                  {shippedOrders.length}
+                </h2>
+                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
+                  Awaiting delivery
+                </p>
+              </div>
+
+              <div style={cardStyle}>
+                <p style={{ color: "#718176", marginTop: 0 }}>
+                  Confirmed Payments
+                </p>
+                <h2 style={{ color: "#176b42", marginBottom: 8 }}>
+                  {money(confirmedPaymentsValue)}
+                </h2>
+                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
+                  {paidOrders.length} paid order(s)
+                </p>
+              </div>
+
+              <div style={cardStyle}>
+                <p style={{ color: "#718176", marginTop: 0 }}>
+                  Delivered, Payment Pending
+                </p>
+                <h2 style={{ color: "#b7791f", marginBottom: 8 }}>
+                  {money(pendingPaymentValue)}
+                </h2>
+                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
+                  {pendingPaymentOrders.length} order(s) awaiting payment confirmation
                 </p>
               </div>
 
@@ -199,24 +278,29 @@ function Earnings() {
                     width: "100%",
                     borderCollapse: "collapse",
                     textAlign: "left",
-                    minWidth: 650,
+                    minWidth: 750,
                   }}
                 >
                   <thead>
                     <tr style={{ background: "#f4f8f3" }}>
-                      {["Crop", "Quantity", "Order Value", "Date", "Status"].map(
-                        (heading) => (
-                          <th
-                            key={heading}
-                            style={{
-                              padding: 13,
-                              borderBottom: "1px solid #e1ebe2",
-                            }}
-                          >
-                            {heading}
-                          </th>
-                        )
-                      )}
+                      {[
+                        "Crop",
+                        "Quantity",
+                        "Order Value",
+                        "Date",
+                        "Status",
+                        "Payment Status",
+                      ].map((heading) => (
+                        <th
+                          key={heading}
+                          style={{
+                            padding: 13,
+                            borderBottom: "1px solid #e1ebe2",
+                          }}
+                        >
+                          {heading}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
 
@@ -238,6 +322,9 @@ function Earnings() {
                         <td style={{ padding: 13, borderBottom: "1px solid #edf1ed" }}>
                           {order.status}
                         </td>
+                        <td style={{ padding: 13, borderBottom: "1px solid #edf1ed" }}>
+                          {order.payment_status || "Pending"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -246,8 +333,10 @@ function Earnings() {
             </div>
 
             <p style={{ marginTop: 18, color: "#718176", fontSize: 13, lineHeight: 1.6 }}>
-              Note: Accepted order value is not confirmed income or proof of
-              payment. Actual earnings require payment tracking in the backend.
+              Completed sales value includes delivered orders. Confirmed payments
+              include only orders marked Paid in the backend. A delivered COD
+              order is not counted as confirmed payment until the farmer confirms
+              receipt of cash.
             </p>
 
             <button

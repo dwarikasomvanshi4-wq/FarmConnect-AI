@@ -10,6 +10,7 @@ import BuyerDashboard from "./pages/BuyerDashboard";
 import AddCrop from "./pages/AddCrop";
 import MyCrops from "./pages/MyCrops";
 import Weather from "./pages/Weather";
+import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
 import BuyerOrders from "./pages/BuyerOrders";
 import Profile from "./pages/Profile";
@@ -31,6 +32,7 @@ function App() {
         <Route path="/add-crop" element={<AddCrop />} />
         <Route path="/my-crops" element={<MyCrops />} />
         <Route path="/weather" element={<Weather />} />
+        <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/buyer-orders" element={<BuyerOrders />} />
         <Route path="/profile" element={<Profile />} />
