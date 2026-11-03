@@ -1,0 +1,213 @@
+
+/* Page background */
+.login-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 20px;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #eff8ef, #dcefdc);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Login card */
+.login-card {
+  width: 100%;
+  max-width: 430px;
+  box-sizing: border-box;
+  padding: 38px 34px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(31, 83, 43, 0.12);
+  border: 1px solid #e4eee3;
+}
+
+/* Brand title */
+.login-card h1 {
+  margin: 0 0 8px;
+  color: #23733b;
+  font-size: 30px;
+  font-weight: 750;
+  text-align: center;
+  letter-spacing: -0.7px;
+}
+
+/* Login heading */
+.login-card h2 {
+  margin: 22px 0 8px;
+  color: #1c3021;
+  font-size: 25px;
+  text-align: center;
+}
+
+/* Supporting text */
+.login-card > p {
+  color: #6b786d;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+  margin: 0 0 25px;
+}
+
+/* Form layout */
+.login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+/* Input labels */
+.login-card label {
+  color: #344b38;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+/* Text fields */
+.login-card input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 14px;
+  border: 1px solid #d4dfd5;
+  border-radius: 10px;
+  outline: none;
+  background: #fbfdfb;
+  color: #243528;
+  font-size: 15px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-card input::placeholder {
+  color: #9aa59b;
+}
+
+.login-card input:focus {
+  border-color: #31834a;
+  box-shadow: 0 0 0 3px rgba(49, 131, 74, 0.12);
+  background: #ffffff;
+}
+
+.login-card input:disabled {
+  background: #f1f5f1;
+  cursor: not-allowed;
+}
+
+/* Buttons */
+.login-card button {
+  width: 100%;
+  padding: 13px 16px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 10px;
+  background: #287a40;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.login-card button:hover:not(:disabled) {
+  background: #1d6332;
+  transform: translateY(-1px);
+}
+
+.login-card button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Back button */
+.login-card button[type="button"]:not(.link-button) {
+  background: #edf5ed;
+  color: #287a40;
+  border: 1px solid #d8e8d8;
+}
+
+.login-card button[type="button"]:not(.link-button):hover:not(:disabled) {
+  background: #e0eee0;
+}
+
+/* Success and error messages */
+.login-card .success-message,
+.login-card .error-message {
+  padding: 11px 12px;
+  margin: 14px 0;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.login-card .success-message {
+  background: #eaf7ec;
+  color: #216b35;
+  border: 1px solid #cce8d1;
+}
+
+.login-card .error-message {
+  background: #fff0ef;
+  color: #b42318;
+  border: 1px solid #f5cfcc;
+}
+
+/* Register link */
+.login-card .link-button {
+  display: inline;
+  width: auto;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: #287a40;
+  font-size: inherit;
+  font-weight: 700;
+  border-radius: 0;
+}
+
+.login-card .link-button:hover {
+  background: transparent;
+  color: #174e27;
+  text-decoration: underline;
+  transform: none;
+}
+
+/* Small screens */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 18px 12px;
+  }
+
+  .login-card {
+    padding: 28px 22px;
+    border-radius: 16px;
+  }
+
+  .login-card h1 {
+    font-size: 26px;
+  }
+
+  .login-card h2 {
+    font-size: 22px;
+  }
+}
+
+.forgot-password-link {
+  margin-top: 12px;
+  margin-bottom: 16px;
+  text-align: right;
+  font-size: 14px;
+}
+
+.forgot-password-link a {
+  color: #2e7d32;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.forgot-password-link a:hover {
+  text-decoration: underline;
+}
