@@ -1954,6 +1954,71 @@ FarmConnect AI Team"""
             "error": "Unable to confirm COD payment"
         }), 500
 
+# =========================================================
+# CROP PRICE TRENDS
+# =========================================================
+
+@app.route("/crop-price-trends", methods=["GET"])
+def crop_price_trends():
+    crop_name = (request.args.get("crop") or "").strip()
+
+    if not crop_name:
+        return jsonify({
+            "error": "Crop name is required. Example: ?crop=Tomato"
+        }), 400
+
+    # Treat Tomato, tomato, and Tomatoes as the same crop.
+    normalized_crop = crop_name.lower()
+
+    if normalized_crop in ("tomato", "tomatoes"):
+        crop_filter = "tomato"
+    else:
+        crop_filter = normalized_crop
+
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text("""
+                    SELECT
+                        DATE(price_date) AS price_day,
+                        ROUND(AVG(price), 2) AS average_price,
+                        COUNT(*) AS record_count
+                    FROM crop_price_history
+                    WHERE
+                        CASE
+                            WHEN LOWER(TRIM(crop_name))
+                                 IN ('tomato', 'tomatoes')
+                            THEN 'tomato'
+                            ELSE LOWER(TRIM(crop_name))
+                        END = :crop_name
+                    GROUP BY DATE(price_date)
+                    ORDER BY price_day ASC
+                """),
+                {"crop_name": crop_filter}
+            ).mappings().all()
+
+        result = [
+            {
+                "date": str(row["price_day"]),
+                "average_price": float(row["average_price"]),
+                "record_count": int(row["record_count"])
+            }
+            for row in rows
+        ]
+
+        return jsonify({
+            "crop": crop_name,
+            "unit": "price per kg, inferred from orders",
+            "total_days": len(result),
+            "history": result
+        }), 200
+
+    except Exception:
+        app.logger.exception("CROP PRICE TRENDS ERROR")
+        return jsonify({
+            "error": "Unable to fetch crop price trends"
+        }), 500
+
 
 # =========================================================
 # RUN SERVER

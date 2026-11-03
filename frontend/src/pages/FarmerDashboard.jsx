@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Package,
   CheckCircle2,
+  TrendingUp,
 } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -48,6 +49,11 @@ function FarmerDashboard() {
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherError, setWeatherError] = useState("");
+  // Crop price trend state
+  const [selectedPriceCrop, setSelectedPriceCrop] = useState("Tomato");
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [priceError, setPriceError] = useState("");
 
   const loadWeather = () => {
   if (!navigator.geolocation) {
@@ -95,6 +101,30 @@ function FarmerDashboard() {
     }
   );
 };
+const loadPriceHistory = useCallback(async () => {
+  setPriceLoading(true);
+  setPriceError("");
+
+  try {
+    const response = await api.get("/crop-price-trends", {
+      params: {
+        crop: selectedPriceCrop,
+      },
+    });
+
+    const history = Array.isArray(response.data?.history)
+      ? response.data.history
+      : [];
+
+    setPriceHistory(history);
+  } catch (error) {
+    console.error("Crop price history loading failed:", error);
+    setPriceHistory([]);
+    setPriceError("Unable to load crop price history. Please try again.");
+  } finally {
+    setPriceLoading(false);
+  }
+}, [selectedPriceCrop]);
 
   const translations = {
     "en-IN": {
@@ -317,6 +347,9 @@ function FarmerDashboard() {
 
   return () => clearInterval(intervalId);
 }, []); 
+useEffect(() => {
+  loadPriceHistory();
+}, [loadPriceHistory]);
 
   useEffect(() => {
     const nextLanguage = languageMap[appLanguage] || "en-IN";
@@ -1054,6 +1087,220 @@ function FarmerDashboard() {
               </button>
             </div>
           </section>
+          
+{/* Crop Price Trend Analysis */}
+<section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
+  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div>
+      <div className="flex items-center gap-2">
+        <TrendingUp className="text-emerald-700" size={25} />
+        <h2 className="text-xl font-bold text-gray-900">
+          Crop Price Trend Analysis
+        </h2>
+      </div>
+      <p className="mt-2 text-sm text-gray-500">
+        View historical average selling prices per kilogram.
+      </p>
+    </div>
+
+    <select
+      value={selectedPriceCrop}
+      onChange={(e) => setSelectedPriceCrop(e.target.value)}
+      className="rounded-xl border border-green-200 bg-white px-4 py-3 font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-green-500"
+    >
+      <option value="Tomato">Tomato</option>
+      <option value="potato">Potato</option>
+      <option value="cabbage">Cabbage</option>
+    </select>
+  </div>
+
+  {priceLoading ? (
+    <div className="mt-6 rounded-xl bg-green-50 p-8 text-center text-gray-600">
+      Loading price history...
+    </div>
+  ) : priceError ? (
+    <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-5 text-red-700">
+      <p>{priceError}</p>
+      <button
+        onClick={loadPriceHistory}
+        className="mt-2 font-semibold underline"
+      >
+        Retry
+      </button>
+    </div>
+  ) : priceHistory.length === 0 ? (
+    <div className="mt-6 rounded-xl bg-gray-50 p-8 text-center text-gray-500">
+      No historical price data is available for {selectedPriceCrop}.
+    </div>
+  ) : (
+    <>
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-xl bg-emerald-50 p-4">
+          <p className="text-sm text-emerald-800">Latest recorded price</p>
+          <p className="mt-1 text-2xl font-bold text-emerald-950">
+            ₹{Number(priceHistory[priceHistory.length - 1].average_price).toFixed(2)}
+          </p>
+          <p className="mt-1 text-xs text-emerald-800">
+            Per kg · {priceHistory[priceHistory.length - 1].date}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-blue-50 p-4">
+          <p className="text-sm text-blue-800">Recorded dates</p>
+          <p className="mt-1 text-2xl font-bold text-blue-950">
+            {priceHistory.length}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-amber-50 p-4">
+          <p className="text-sm text-amber-800">Price change</p>
+          <p className="mt-1 text-2xl font-bold text-amber-950">
+            {priceHistory.length > 1
+              ? `${Number(
+                  priceHistory[priceHistory.length - 1].average_price -
+                  priceHistory[priceHistory.length - 2].average_price
+                ) > 0 ? "+" : ""}₹${(
+                  priceHistory[priceHistory.length - 1].average_price -
+                  priceHistory[priceHistory.length - 2].average_price
+                ).toFixed(2)}`
+              : "—"}
+          </p>
+          <p className="mt-1 text-xs text-amber-800">
+            Versus the previous recorded date
+          </p>
+        </div>
+      </div>
+
+      {(() => {
+        const width = 700;
+        const height = 260;
+        const padding = { top: 25, right: 25, bottom: 45, left: 55 };
+
+        const values = priceHistory.map((item) =>
+          Number(item.average_price)
+        );
+        const minPrice = Math.min(...values);
+        const maxPrice = Math.max(...values);
+        const range = maxPrice - minPrice || 1;
+
+        const points = priceHistory.map((item, index) => {
+          const x =
+            padding.left +
+            (priceHistory.length === 1
+              ? (width - padding.left - padding.right) / 2
+              : (index / (priceHistory.length - 1)) *
+                (width - padding.left - padding.right));
+
+          const y =
+            height -
+            padding.bottom -
+            ((Number(item.average_price) - minPrice) / range) *
+              (height - padding.top - padding.bottom);
+
+          return { ...item, x, y };
+        });
+
+        const polylinePoints = points
+          .map((point) => `${point.x},${point.y}`)
+          .join(" ");
+
+        return (
+          <div className="mt-6 rounded-xl border border-gray-100 p-3 sm:p-5">
+            <h3 className="mb-2 font-semibold text-gray-800">
+              {selectedPriceCrop} price history (₹/kg)
+            </h3>
+
+            <div className="w-full overflow-hidden">
+              <svg
+                viewBox={`0 0 ${width} ${height}`}
+                className="h-auto w-full"
+                role="img"
+                aria-label={`Historical average price trend for ${selectedPriceCrop}`}
+              >
+                {[0, 1, 2, 3].map((step) => {
+                  const y =
+                    padding.top +
+                    (step / 3) *
+                      (height - padding.top - padding.bottom);
+
+                  const price =
+                    maxPrice - (step / 3) * range;
+
+                  return (
+                    <g key={step}>
+                      <line
+                        x1={padding.left}
+                        y1={y}
+                        x2={width - padding.right}
+                        y2={y}
+                        stroke="#e5e7eb"
+                        strokeDasharray="4 4"
+                      />
+                      <text
+                        x={padding.left - 8}
+                        y={y + 4}
+                        fontSize="12"
+                        textAnchor="end"
+                        fill="#6b7280"
+                      >
+                        ₹{price.toFixed(0)}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {points.length > 1 && (
+                  <polyline
+                    points={polylinePoints}
+                    fill="none"
+                    stroke="#047857"
+                    strokeWidth="3"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                )}
+
+                {points.map((point) => (
+                  <g key={`${point.date}-${point.x}`}>
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r="5"
+                      fill="#047857"
+                      stroke="white"
+                      strokeWidth="2"
+                    >
+                      <title>
+                        {point.date}: ₹{Number(point.average_price).toFixed(2)}/kg
+                      </title>
+                    </circle>
+
+                    <text
+                      x={point.x}
+                      y={height - 15}
+                      fontSize={points.length > 5 ? "10" : "11"}
+                      textAnchor="middle"
+                      fill="#6b7280"
+                    >
+                      {point.date.slice(5)}
+                    </text>
+                  </g>
+                ))}
+              </svg>
+            </div>
+          </div>
+        );
+      })()}
+
+      <p className="mt-4 text-xs leading-5 text-gray-500">
+        Prices are inferred from FarmConnect-AI order records, not official
+        market prices. This chart shows historical data only and does not
+        guarantee future prices.
+      </p>
+    </>
+  )}
+</section>
+
 
           <section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
             <div className="flex items-center gap-3">
