@@ -1,8 +1,6 @@
 
 import { Routes, Route } from "react-router-dom";
-import Profile from "./pages/Profile";
-import Earnings from "./pages/Earnings";
-import Voice from "./pages/Voice";
+
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -14,6 +12,9 @@ import MyCrops from "./pages/MyCrops";
 import Weather from "./pages/Weather";
 import Orders from "./pages/Orders";
 import BuyerOrders from "./pages/BuyerOrders";
+import Profile from "./pages/Profile";
+import Earnings from "./pages/Earnings";
+import Voice from "./pages/Voice";
 
 import { LanguageProvider } from "./i18n/LanguageContext";
 
@@ -22,9 +23,6 @@ function App() {
     <LanguageProvider>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/earnings" element={<Earnings />} />
-        <Route path="/voice" element={<Voice />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -35,6 +33,9 @@ function App() {
         <Route path="/weather" element={<Weather />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/buyer-orders" element={<BuyerOrders />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/earnings" element={<Earnings />} />
+        <Route path="/voice" element={<Voice />} />
       </Routes>
     </LanguageProvider>
   );
