@@ -9,11 +9,52 @@ function AddCrop() {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState(null);
+  const [latitude, setLatitude] = useState(null);
+  const [longitude, setLongitude] = useState(null);
+  const [locationMessage, setLocationMessage] = useState("");
+  const [gettingLocation, setGettingLocation] = useState(false);
 
   const [language, setLanguage] = useState("en-IN");
   const [listening, setListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
   const [voiceTranscript, setVoiceTranscript] = useState("");
+  const getCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    setLocationMessage(
+      "Location is not supported by this browser. You can still list your crop."
+    );
+    return;
+  }
+
+  setGettingLocation(true);
+  setLocationMessage("Getting your location...");
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      setLatitude(position.coords.latitude);
+      setLongitude(position.coords.longitude);
+      setLocationMessage("Location captured successfully!");
+      setGettingLocation(false);
+    },
+    (error) => {
+      setLatitude(null);
+      setLongitude(null);
+
+      setLocationMessage(
+        error.code === 1
+          ? "Location permission denied. You can still list your crop."
+          : "Unable to get location. You can still list your crop."
+      );
+
+      setGettingLocation(false);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000,
+    }
+  );
+};
 
   const startVoiceEntry = () => {
     const SpeechRecognition =
@@ -174,14 +215,16 @@ function AddCrop() {
       }
 
       await api.post("/add-crop", {
-        farmer_email: farmerEmail,
-        crop_name: cropName,
-        category,
-        quantity,
-        price,
-        description,
-        image: imagePath,
-      });
+  farmer_email: farmerEmail,
+  crop_name: cropName,
+  category,
+  quantity,
+  price,
+  description,
+  image: imagePath,
+  latitude,
+  longitude,
+});
 
       alert("🌾 Crop Added Successfully");
 
@@ -193,6 +236,9 @@ function AddCrop() {
       setImage(null);
       setVoiceTranscript("");
       setVoiceMessage("");
+      setLatitude(null);
+      setLongitude(null);
+      setLocationMessage("");
 
       const imageInput = document.getElementById("imageInput");
       if (imageInput) imageInput.value = "";
@@ -267,6 +313,37 @@ function AddCrop() {
         </div>
 
         <div className="space-y-5">
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+  <h2 className="mb-2 text-lg font-semibold text-green-800">
+    📍 Farm Location
+  </h2>
+
+  <p className="mb-3 text-sm text-gray-600">
+    Share your location so nearby buyers can discover your crops.
+    This is optional.
+  </p>
+
+  <button
+    type="button"
+    onClick={getCurrentLocation}
+    disabled={gettingLocation}
+    className="rounded-lg bg-green-700 px-5 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-60"
+  >
+    {gettingLocation ? "Getting Location..." : "📍 Use My Current Location"}
+  </button>
+
+  {locationMessage && (
+    <p className="mt-3 text-sm text-green-900" role="status">
+      {locationMessage}
+    </p>
+  )}
+
+  {latitude !== null && longitude !== null && (
+    <p className="mt-2 text-xs text-gray-600">
+      Coordinates captured: {latitude.toFixed(5)}, {longitude.toFixed(5)}
+    </p>
+  )}
+</div>
           <input
             type="text"
             placeholder="Crop Name"
