@@ -614,123 +614,242 @@ def verify_login_otp():
 # ADD CROP
 # =========================================================
 
+
 @app.route("/add-crop", methods=["POST"])
 def add_crop():
+    data = request.get_json(silent=True) or {}
 
-    data = request.json
+    farmer_email = (data.get("farmer_email") or "").strip().lower()
+    crop_name = (data.get("crop_name") or "").strip()
+
+    if not farmer_email or not crop_name:
+        return jsonify({
+            "error": "Farmer email and crop name are required"
+        }), 400
+
+    # Location is optional, so older frontend requests still work.
+    latitude = data.get("latitude")
+    longitude = data.get("longitude")
 
     try:
+        if latitude is not None:
+            latitude = float(latitude)
+            if not -90 <= latitude <= 90:
+                raise ValueError("Latitude is out of range")
 
-        with engine.connect() as conn:
+        if longitude is not None:
+            longitude = float(longitude)
+            if not -180 <= longitude <= 180:
+                raise ValueError("Longitude is out of range")
 
+        # Require both coordinates together, or neither.
+        if (latitude is None) != (longitude is None):
+            return jsonify({
+                "error": "Latitude and longitude must be provided together"
+            }), 400
+
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "Invalid latitude or longitude"
+        }), 400
+
+    try:
+        with engine.begin() as conn:
             conn.execute(
                 text("""
-                    INSERT INTO crops
-                    (
+                    INSERT INTO crops (
                         farmer_email,
                         crop_name,
                         category,
                         quantity,
                         price,
                         description,
-                        image
+                        image,
+                        latitude,
+                        longitude
                     )
-
-                    VALUES
-                    (
+                    VALUES (
                         :farmer_email,
                         :crop_name,
                         :category,
                         :quantity,
                         :price,
                         :description,
-                        :image
+                        :image,
+                        :latitude,
+                        :longitude
                     )
                 """),
                 {
-                    "farmer_email": data["farmer_email"],
-                    "crop_name": data["crop_name"],
-                    "category": data["category"],
-                    "quantity": data["quantity"],
-                    "price": data["price"],
-                    "description": data["description"],
-                    "image": data.get("image", "")
+                    "farmer_email": farmer_email,
+                    "crop_name": crop_name,
+                    "category": data.get("category"),
+                    "quantity": data.get("quantity"),
+                    "price": data.get("price"),
+                    "description": data.get("description", ""),
+                    "image": data.get("image", ""),
+                    "latitude": latitude,
+                    "longitude": longitude
                 }
             )
 
-            conn.commit()
-
-
         return jsonify({
-            "message": "Crop Added Successfully"
-        })
+            "message": "Crop added successfully",
+            "location_saved": latitude is not None
+        }), 201
 
-
-    except Exception as e:
-
-        print("ADD CROP ERROR:", e)
-
+    except Exception:
+        app.logger.exception("ADD CROP ERROR")
         return jsonify({
-            "error": str(e)
+            "error": "Unable to add crop"
         }), 500
-
 
 # =========================================================
 # VIEW CROPS
 # =========================================================
 
+
 @app.route("/crops", methods=["GET"])
 def get_crops():
-
     try:
-
         with engine.connect() as conn:
-
             crops = conn.execute(
                 text("""
-                    SELECT *
+                    SELECT
+                        id,
+                        farmer_email,
+                        crop_name,
+                        category,
+                        quantity,
+                        price,
+                        description,
+                        image,
+                        latitude,
+                        longitude
                     FROM crops
                     ORDER BY id DESC
                 """)
-            ).fetchall()
+            ).mappings().all()
 
+        result = [
+            {
+                "id": crop["id"],
+                "farmer_email": crop["farmer_email"],
+                "crop_name": crop["crop_name"],
+                "category": crop["category"],
+                "quantity": crop["quantity"],
+                "price": float(crop["price"] or 0),
+                "description": crop["description"] or "",
+                "image": crop["image"] or "",
+                "latitude": (
+                    float(crop["latitude"])
+                    if crop["latitude"] is not None else None
+                ),
+                "longitude": (
+                    float(crop["longitude"])
+                    if crop["longitude"] is not None else None
+                )
+            }
+            for crop in crops
+        ]
 
-        result = []
+        return jsonify(result), 200
 
-
-        for crop in crops:
-
-            result.append({
-
-                "id": crop.id,
-
-                "farmer_email": crop.farmer_email,
-
-                "crop_name": crop.crop_name,
-
-                "category": crop.category,
-
-                "quantity": crop.quantity,
-
-                "price": float(crop.price),
-
-                "description": crop.description or "",
-
-                "image": crop.image or ""
-
-            })
-
-
-        return jsonify(result)
-
-
-    except Exception as e:
-
-        print("GET CROPS ERROR:", e)
-
+    except Exception:
+        app.logger.exception("GET CROPS ERROR")
         return jsonify({
-            "error": str(e)
+            "error": "Unable to fetch crops"
         }), 500
+
+
+@app.route("/nearby-crops", methods=["GET"])
+def nearby_crops():
+    try:
+        latitude = float(request.args.get("lat", ""))
+        longitude = float(request.args.get("lon", ""))
+        radius_km = float(request.args.get("radius", "25"))
+
+        if not (-90 <= latitude <= 90):
+            raise ValueError("Invalid latitude")
+
+        if not (-180 <= longitude <= 180):
+            raise ValueError("Invalid longitude")
+
+        if not (1 <= radius_km <= 200):
+            return jsonify({
+                "error": "Radius must be between 1 and 200 km"
+            }), 400
+
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "Valid latitude, longitude, and radius are required"
+        }), 400
+
+    try:
+        with engine.connect() as conn:
+            crops = conn.execute(
+                text("""
+                    SELECT
+                        id,
+                        farmer_email,
+                        crop_name,
+                        category,
+                        quantity,
+                        price,
+                        description,
+                        image,
+                        latitude,
+                        longitude,
+                        (
+                            6371 * ACOS(
+                                LEAST(1.0, GREATEST(-1.0,
+                                    COS(RADIANS(:lat))
+                                    * COS(RADIANS(latitude))
+                                    * COS(RADIANS(longitude) - RADIANS(:lon))
+                                    + SIN(RADIANS(:lat))
+                                    * SIN(RADIANS(latitude))
+                                ))
+                            )
+                        ) AS distance_km
+                    FROM crops
+                    WHERE latitude IS NOT NULL
+                      AND longitude IS NOT NULL
+                      AND quantity > 0
+                    HAVING distance_km <= :radius
+                    ORDER BY distance_km ASC
+                """),
+                {
+                    "lat": latitude,
+                    "lon": longitude,
+                    "radius": radius_km
+                }
+            ).mappings().all()
+
+        result = [
+            {
+                "id": crop["id"],
+                "farmer_email": crop["farmer_email"],
+                "crop_name": crop["crop_name"],
+                "category": crop["category"],
+                "quantity": crop["quantity"],
+                "price": float(crop["price"] or 0),
+                "description": crop["description"] or "",
+                "image": crop["image"] or "",
+                "latitude": float(crop["latitude"]),
+                "longitude": float(crop["longitude"]),
+                "distance_km": round(float(crop["distance_km"]), 2)
+            }
+            for crop in crops
+        ]
+
+        return jsonify(result), 200
+
+    except Exception:
+        app.logger.exception("NEARBY CROPS ERROR")
+        return jsonify({
+            "error": "Unable to find nearby crops"
+        }), 500
+
 
 
 # =========================================================
