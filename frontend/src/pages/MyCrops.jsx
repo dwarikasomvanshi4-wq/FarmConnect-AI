@@ -37,12 +37,18 @@ function MyCrops() {
   const loadCrops = async () => {
     try {
       const res = await api.get("/crops");
-      const email = localStorage.getItem("email");
+      const email = localStorage.getItem("userEmail");
+
+      console.log("Logged-in email:", email);
+      console.log("Crops from backend:", res.data);
 
       const myCrops = res.data.filter(
-        (crop) => crop.farmer_email === email
+        (crop) =>
+          crop.farmer_email?.trim().toLowerCase() ===
+          email?.trim().toLowerCase()
       );
 
+      console.log("My filtered crops:", myCrops);
       setCrops(myCrops);
     } catch (err) {
       console.error("Failed to load crops:", err);
@@ -280,12 +286,6 @@ function MyCrops() {
             {message && (
               <p className="mt-3 text-gray-700">{message}</p>
             )}
-
-            <p className="mt-4 text-sm text-gray-600">
-              This is an AI-generated screening result, not a confirmed
-              diagnosis. Results can be inaccurate. If the plant appears
-              seriously affected, seek advice from an agricultural expert.
-            </p>
           </div>
         )}
       </section>
@@ -368,7 +368,8 @@ function MyCrops() {
                   </h3>
 
                   <p className="mt-3">
-                    <strong>Category:</strong> {crop.category || "Not Added"}
+                    <strong>Category:</strong>{" "}
+                    {crop.category || "Not Added"}
                   </p>
 
                   <p>
