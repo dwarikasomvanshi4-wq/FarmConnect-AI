@@ -1,6 +1,8 @@
 
 import { Routes, Route } from "react-router-dom";
-
+import Profile from "./pages/Profile";
+import Earnings from "./pages/Earnings";
+import Voice from "./pages/Voice";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -20,6 +22,9 @@ function App() {
     <LanguageProvider>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/earnings" element={<Earnings />} />
+        <Route path="/voice" element={<Voice />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
