@@ -1064,7 +1064,45 @@ def weather():
             "error": "Weather service is temporarily unavailable."
         }), 502
 
+@app.route("/weather/<city>", methods=["GET"])
+def weather_by_city(city):
+    if not API_KEY:
+        return jsonify({"error": "Weather API key is not configured."}), 500
 
+    url = "https://api.openweathermap.org/data/2.5/weather"
+
+    try:
+        response = requests.get(
+            url,
+            params={
+                "q": city,
+                "appid": API_KEY,
+                "units": "metric"
+            },
+            timeout=10
+        )
+
+        data = response.json()
+
+        if response.status_code != 200:
+            app.logger.error("Weather API error: %s", data)
+            return jsonify({
+                "error": data.get("message", "Unable to fetch weather.")
+            }), response.status_code
+
+        return jsonify({
+            "city": data.get("name", city),
+            "temperature": data["main"]["temp"],
+            "humidity": data["main"]["humidity"],
+            "weather": data["weather"][0]["description"],
+            "wind_speed": data["wind"]["speed"]
+        })
+
+    except requests.RequestException:
+        app.logger.exception("Weather API request failed")
+        return jsonify({
+            "error": "Weather service is temporarily unavailable."
+        }), 502
 # =========================================================
 # FEEDBACK
 # =========================================================
