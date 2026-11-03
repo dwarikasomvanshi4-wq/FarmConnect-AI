@@ -34,6 +34,14 @@ function BuyerDashboard() {
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [weatherError, setWeatherError] = useState("");
 
+  // Nearby crops
+  const [nearbyCrops, setNearbyCrops] = useState([]);
+  const [nearbyRadius, setNearbyRadius] = useState("25");
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyError, setNearbyError] = useState("");
+  const [nearbySearched, setNearbySearched] = useState(false);
+  const [buyerLocation, setBuyerLocation] = useState(null);
+
   const [listening, setListening] = useState(false);
   const [voiceText, setVoiceText] = useState("");
   const [voiceMessage, setVoiceMessage] = useState("");
@@ -236,6 +244,78 @@ function BuyerDashboard() {
       console.error("Crop error:", error);
       setCrops([]);
     }
+  };
+
+  // Find crops near the buyer's current location.
+  const findNearbyCrops = () => {
+    if (!navigator.geolocation) {
+      setNearbyError("Location is not supported by this browser.");
+      return;
+    }
+
+    setNearbyLoading(true);
+    setNearbyError("");
+    setNearbySearched(false);
+    setNearbyCrops([]);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+
+        setBuyerLocation({ latitude, longitude });
+
+        try {
+          const response = await api.get("/nearby-crops", {
+            params: {
+              lat: latitude,
+              lon: longitude,
+              radius: Number(nearbyRadius),
+            },
+          });
+
+          const data = Array.isArray(response.data)
+            ? response.data
+            : Array.isArray(response.data?.crops)
+            ? response.data.crops
+            : [];
+
+          setNearbyCrops(data);
+          setNearbySearched(true);
+        } catch (error) {
+          console.error(
+            "Nearby crop search error:",
+            error.response?.data || error
+          );
+
+          setNearbyError(
+            error.response?.data?.error ||
+              error.response?.data?.message ||
+              "Unable to find nearby crops. Please try again."
+          );
+        } finally {
+          setNearbyLoading(false);
+        }
+      },
+      (error) => {
+        console.error("Buyer location error:", error.message);
+
+        const errorMessages = {
+          1: "Location permission was denied. Allow location access in your browser settings.",
+          2: "Your location could not be determined. Please try again.",
+          3: "Location request timed out. Please try again.",
+        };
+
+        setNearbyError(
+          errorMessages[error.code] || "Unable to access your location."
+        );
+        setNearbyLoading(false);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 60000,
+      }
+    );
   };
 
   const loadOrders = async () => {
@@ -595,7 +675,6 @@ function BuyerDashboard() {
       return;
     }
 
-    // Use the checkout flow in this component rather than navigating away.
     startCheckout(crop, "1");
   };
 
@@ -873,6 +952,12 @@ function BuyerDashboard() {
     </div>
   );
 
+  const getImageUrl = (imageUrl) => {
+    if (!imageUrl) return "";
+    if (imageUrl.startsWith("http")) return imageUrl;
+    return `http://127.0.0.1:5000/${imageUrl.replace(/\\/g, "/")}`;
+  };
+
   const renderCheckout = () => {
     if (checkoutStep === 0) return null;
 
@@ -989,11 +1074,7 @@ function BuyerDashboard() {
                 <div className="flex gap-4 bg-gray-50 rounded-2xl p-4">
                   {selectedCrop.image_url ? (
                     <img
-                      src={
-                        selectedCrop.image_url.startsWith("http")
-                          ? selectedCrop.image_url
-                          : `http://127.0.0.1:5000/${selectedCrop.image_url.replace(/\\/g, "/")}`
-                      }
+                      src={getImageUrl(selectedCrop.image_url)}
                       alt={selectedCrop.crop_name}
                       className="w-24 h-24 object-cover rounded-xl"
                     />
@@ -1044,7 +1125,10 @@ function BuyerDashboard() {
               <div className="bg-green-50 rounded-xl p-4 flex justify-between items-center">
                 <span className="text-gray-700 font-medium">Estimated total</span>
                 <span className="text-2xl font-bold text-green-800">
-                  ₹{(Number(selectedCrop?.price || 0) * Number(selectedQuantity || 0)).toFixed(2)}
+                  {(
+                    Number(selectedCrop?.price || 0) *
+                    Number(selectedQuantity || 0)
+                  ).toFixed(2)}
                 </span>
               </div>
 
@@ -1299,12 +1383,6 @@ function BuyerDashboard() {
     );
   };
 
-  const getImageUrl = (imageUrl) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    return `http://127.0.0.1:5000/${imageUrl.replace(/\\/g, "/")}`;
-  };
-
   return (
     <div className="min-h-screen bg-gray-100">
       {checkoutStep > 0 ? (
@@ -1457,7 +1535,7 @@ function BuyerDashboard() {
             </div>
           </div>
 
-          {/* Dashboard cards — one grid only */}
+          {/* Dashboard cards */}
           <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
             <div className="grid md:grid-cols-3 gap-6">
               <button
@@ -1525,6 +1603,144 @@ function BuyerDashboard() {
             </div>
           </div>
 
+          {/* Find Nearby Crops */}
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
+            <div className="bg-white rounded-2xl shadow-lg border border-green-100 p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="bg-green-100 p-3 rounded-xl">
+                  <MapPin className="text-green-700" size={28} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Find Nearby Crops
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Discover available crops near your current location.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Search radius
+                  </label>
+                  <select
+                    value={nearbyRadius}
+                    onChange={(event) => setNearbyRadius(event.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 bg-white"
+                    disabled={nearbyLoading}
+                  >
+                    <option value="5">Within 5 km</option>
+                    <option value="10">Within 10 km</option>
+                    <option value="25">Within 25 km</option>
+                    <option value="50">Within 50 km</option>
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={findNearbyCrops}
+                    disabled={nearbyLoading}
+                    className="w-full sm:w-auto bg-green-700 hover:bg-green-800 text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <MapPin size={18} />
+                    {nearbyLoading ? "Finding Crops..." : "Use My Location"}
+                  </button>
+                </div>
+              </div>
+
+              {buyerLocation && (
+                <p className="text-xs text-gray-500 mt-3">
+                  Your location: {buyerLocation.latitude.toFixed(5)},{" "}
+                  {buyerLocation.longitude.toFixed(5)}
+                </p>
+              )}
+
+              {nearbyError && (
+                <div className="mt-4 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
+                  {nearbyError}
+                </div>
+              )}
+
+              {nearbySearched && nearbyCrops.length === 0 && !nearbyError && (
+                <div className="mt-5 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-yellow-800">
+                  No crops with saved locations were found within{" "}
+                  {nearbyRadius} km. Try a larger radius or check whether farmers
+                  have saved their crop locations.
+                </div>
+              )}
+
+              {nearbyCrops.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="font-bold text-gray-800 mb-4">
+                    Nearby crops ({nearbyCrops.length})
+                  </h3>
+
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {nearbyCrops.map((crop) => (
+                      <div
+                        key={crop.id}
+                        className="border border-green-100 rounded-2xl overflow-hidden hover:shadow-lg transition bg-white"
+                      >
+                        {crop.image_url || crop.image ? (
+                          <img
+                            src={getImageUrl(crop.image_url || crop.image)}
+                            alt={crop.crop_name}
+                            className="w-full h-40 object-cover"
+                          />
+                        ) : (
+                          <div className="h-40 bg-green-50 flex items-center justify-center">
+                            <Package size={48} className="text-green-300" />
+                          </div>
+                        )}
+
+                        <div className="p-5">
+                          <h4 className="text-lg font-bold text-gray-800">
+                            {crop.crop_name}
+                          </h4>
+
+                          <p className="text-sm text-gray-500 mt-1">
+                            Farmer:{" "}
+                            {crop.farmer_name ||
+                              crop.farmer_email ||
+                              "Local Farmer"}
+                          </p>
+
+                          <div className="mt-3 flex items-center gap-2 text-sm text-blue-700">
+                            <MapPin size={16} />
+                            {Number(crop.distance_km).toFixed(2)} km away
+                          </div>
+
+                          <p className="text-xl font-bold text-green-700 mt-3">
+                            ₹{Number(crop.price).toFixed(2)}
+                            <span className="text-sm font-normal text-gray-500">
+                              {" "}/ Kg
+                            </span>
+                          </p>
+
+                          <p className="text-sm text-gray-500 mt-1">
+                            Available: {crop.quantity} Kg
+                          </p>
+
+                          <button
+                            onClick={() => buyCrop(crop)}
+                            disabled={Number(crop.quantity) <= 0}
+                            className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            <ShoppingCart size={18} />
+                            Buy Directly
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* All available crops */}
           <div
             id="buyer-crops-section"
             className="max-w-7xl mx-auto px-6 lg:px-10 mt-10 scroll-mt-6"
