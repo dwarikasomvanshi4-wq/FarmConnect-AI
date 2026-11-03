@@ -34,8 +34,8 @@ function AddCrop() {
       // Save Crop
       await api.post("/add-crop", {
         farmer_email:
-          localStorage.getItem("email") ||
-          "dwarikasomvanshi4@gmail.com",
+               localStorage.getItem("userEmail") ||
+               localStorage.getItem("email"),
 
         crop_name: cropName,
         category: category,
