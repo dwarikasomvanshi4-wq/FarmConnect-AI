@@ -85,9 +85,18 @@ function Login() {
         throw new Error(data.message || "OTP verification failed.");
       }
 
-      localStorage.setItem("userEmail", data.email);
-      localStorage.setItem("userName", data.name);
-      localStorage.setItem("userRole", data.role);
+      // Clear any previous user's session data before saving the new login
+
+      // Clear previous session details in this tab
+      sessionStorage.removeItem("userEmail");
+      sessionStorage.removeItem("userName");
+      sessionStorage.removeItem("userRole");
+
+      // Save the currently logged-in user's details in this tab
+      sessionStorage.setItem("userEmail", data.email);
+      sessionStorage.setItem("userName", data.name);
+      sessionStorage.setItem("userRole", data.role);
+
 
       setMessage("Login successful! Redirecting...");
 

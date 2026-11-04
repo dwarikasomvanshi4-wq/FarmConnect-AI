@@ -190,9 +190,8 @@ function AddCrop() {
     }
 
     const farmerEmail =
-      localStorage.getItem("userEmail") ||
-      localStorage.getItem("email");
-
+  sessionStorage.getItem("userEmail") ||
+  sessionStorage.getItem("email");
     if (!farmerEmail) {
       alert("Please log in before adding a crop.");
       return;

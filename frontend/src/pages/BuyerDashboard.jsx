@@ -54,7 +54,7 @@ function BuyerDashboard() {
   const [lastOrder, setLastOrder] = useState(null);
 
   const [address, setAddress] = useState({
-    full_name: localStorage.getItem("name") || "",
+    full_name: sessionStorage.getItem("userName") || "",
     phone: "",
     house: "",
     street: "",
@@ -63,20 +63,15 @@ function BuyerDashboard() {
     pincode: "",
     instructions: "",
   });
-
-  const buyerName = localStorage.getItem("name") || "Buyer";
+const buyerName = sessionStorage.getItem("userName") || "Buyer";
+  
 
   const getBuyerEmail = () => {
-    return (
-      [
-        localStorage.getItem("userEmail"),
-        localStorage.getItem("email"),
-      ].find((value) => {
-        const email = (value || "").trim().toLowerCase();
-        return email && email !== "null" && email !== "undefined";
-      })?.trim() || ""
-    );
-  };
+  const email = sessionStorage.getItem("userEmail");
+  return email && email !== "null" && email !== "undefined"
+    ? email.trim().toLowerCase()
+    : "";
+};
 
   const languageCodes = {
     en: "en-IN",
@@ -396,53 +391,74 @@ function BuyerDashboard() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const cropAliases = {
-    tomato: ["tomato", "tomatoes", "टमाटर", "ಟೊಮೇಟೊ", "ಟೊಮ್ಯಾಟೊ"],
-    potato: ["potato", "potatoes", "आलू", "ಆಲೂಗಡ್ಡೆ"],
-    onion: ["onion", "onions", "प्याज", "प्याज़", "ಈರುಳ್ಳಿ"],
-    rice: ["rice", "धान", "चावल", "ಅಕ್ಕಿ"],
-    wheat: ["wheat", "गेहूं", "गेहूँ", "ಗೋಧಿ"],
-    carrot: ["carrot", "carrots", "गाजर", "ಕ್ಯಾರೆಟ್"],
-    cabbage: ["cabbage", "पत्ता गोभी", "ಎಲೆಕೋಸು"],
-    cauliflower: ["cauliflower", "फूलगोभी", "ಹೂಕೋಸು"],
-    brinjal: ["brinjal", "eggplant", "बैंगन", "ಬದನೆಕಾಯಿ"],
-    chilli: ["chilli", "chili", "green chilli", "मिर्च", "ಮೆಣಸಿನಕಾಯಿ"],
-    beans: ["beans", "फली", "ಬೀನ್ಸ್"],
-    cucumber: ["cucumber", "खीरा", "ಸೌತೆಕಾಯಿ"],
-    spinach: ["spinach", "पालक", "ಪಾಲಕ್"],
-    mango: ["mango", "mangoes", "आम", "ಮಾವು"],
-    banana: ["banana", "bananas", "केला", "ಬಾಳೆಹಣ್ಣು"],
+    // Dynamically recognize crop names returned by the backend.
+  // Supports English, Hindi, Kannada and optional crop aliases.
+  const getCropVoiceNames = (crop) => {
+    const names = [
+      crop.crop_name,
+      crop.crop_name_en,
+      crop.crop_name_hi,
+      crop.crop_name_kn,
+      crop.name,
+      ...(Array.isArray(crop.aliases) ? crop.aliases : []),
+      ...(Array.isArray(crop.aliases_hi) ? crop.aliases_hi : []),
+      ...(Array.isArray(crop.aliases_kn) ? crop.aliases_kn : []),
+    ];
+
+    return [
+      ...new Set(
+        names
+          .map((name) => normalizeText(name))
+          .filter(Boolean)
+      ),
+    ];
   };
 
-  const translateCropName = (name) => {
-    const normalized = normalizeText(name);
-
-    for (const [english, aliases] of Object.entries(cropAliases)) {
-      if (aliases.some((alias) => normalizeText(alias) === normalized)) {
-        return english;
-      }
-    }
-
-    return normalized;
-  };
+  const translateCropName = (name) => normalizeText(name);
 
   const findCropByVoice = (name) => {
-    const wanted = translateCropName(name);
+    const wanted = normalizeText(name);
 
-    return (
-      crops.find(
-        (crop) =>
-          normalizeText(crop.crop_name) === wanted ||
-          normalizeText(crop.crop_name) === normalizeText(name)
-      ) ||
-      crops.find(
-        (crop) =>
-          normalizeText(crop.crop_name).includes(wanted) ||
-          wanted.includes(normalizeText(crop.crop_name))
-      )
+    if (!wanted) return null;
+
+    // Prefer an exact match.
+    const exactMatch = crops.find((crop) =>
+      getCropVoiceNames(crop).includes(wanted)
     );
-  };
 
+    if (exactMatch) return exactMatch;
+
+    // Otherwise, find the closest partial match.
+    const matches = crops
+      .map((crop) => ({
+        crop,
+        names: getCropVoiceNames(crop),
+      }))
+      .filter(({ names }) =>
+        names.some(
+          (cropName) =>
+            cropName.includes(wanted) ||
+            wanted.includes(cropName)
+        )
+      )
+      .sort((a, b) => {
+        const aLength = Math.min(
+          ...a.names.map((name) =>
+            Math.abs(name.length - wanted.length)
+          )
+        );
+
+        const bLength = Math.min(
+          ...b.names.map((name) =>
+            Math.abs(name.length - wanted.length)
+          )
+        );
+
+        return aLength - bLength;
+      });
+
+    return matches[0]?.crop || null;
+  };
   const resetCheckout = () => {
     setCheckoutStep(0);
     setSelectedCrop(null);
@@ -716,12 +732,18 @@ function BuyerDashboard() {
     speak(promptText);
   };
 
-  const handleVoiceCommand = (spokenText) => {
+    const handleVoiceCommand = (spokenText) => {
     const command = normalizeText(spokenText);
     setVoiceText(spokenText);
 
-    if (!command) return speak(voiceT("notUnderstood"));
+    if (!command) {
+      return speak(voiceT("notUnderstood"));
+    }
 
+    const isHindi = language === "hi-IN";
+    const isKannada = language === "kn-IN";
+
+    // Help
     if (
       /\bhelp\b|\bwhat can you do\b|\bvoice commands\b|\bcommands\b/.test(command) ||
       command.includes("मदद") ||
@@ -731,27 +753,7 @@ function BuyerDashboard() {
       return speak(voiceT("help"));
     }
 
-    const buyMatch = command.match(
-      /\b(?:buy|order|purchase|get)\s+(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms?)\s+(?:of\s+)?(.+)$/
-    );
-
-    if (buyMatch) {
-      const quantity = Number(buyMatch[1]);
-      const cropName = buyMatch[2]
-        .replace(/\b(please|now|for me)\b/g, "")
-        .trim();
-
-      const crop = findCropByVoice(cropName);
-
-      if (!crop) {
-        setSearch(translateCropName(cropName));
-        scrollToCrops();
-        return speak(voiceT("noCrop"));
-      }
-
-      return beginVoicePurchase(crop, quantity);
-    }
-
+    // Weather
     if (
       command.includes("weather") ||
       command.includes("मौसम") ||
@@ -761,6 +763,7 @@ function BuyerDashboard() {
       return;
     }
 
+    // Orders
     if (
       command.includes("my orders") ||
       command.includes("show orders") ||
@@ -769,12 +772,14 @@ function BuyerDashboard() {
       command.includes("order status") ||
       command.includes("मेरे ऑर्डर") ||
       command.includes("ऑर्डर दिखाओ") ||
-      command.includes("ನನ್ನ ಆರ್ಡರ್")
+      command.includes("ನನ್ನ ಆರ್ಡರ್") ||
+      command.includes("ಆರ್ಡರ್ ತೋರಿಸು")
     ) {
       speak(voiceT("openingOrders"), () => navigate("/buyer-orders"));
       return;
     }
 
+    // Profile
     if (
       command.includes("my profile") ||
       command.includes("open profile") ||
@@ -785,71 +790,157 @@ function BuyerDashboard() {
       return;
     }
 
-    if (
-      command.includes("show available crops") ||
-      command.includes("show crops") ||
-      command.includes("show all crops") ||
-      command.includes("show all products") ||
-      command.includes("show available products") ||
-      command.includes("open marketplace") ||
-      command.includes("सभी फसलें दिखाओ") ||
-      command.includes("फसल दिखाओ") ||
-      command.includes("ಎಲ್ಲಾ ಬೆಳೆಗಳನ್ನು ತೋರಿಸು") ||
-      command.includes("ಬೆಳೆಗಳನ್ನು ತೋರಿಸು")
-    ) {
+    // Show all crops
+    
+      
+    // Show all crops - English, Hindi, Kannada
+        const showCropsCommands = [
+                 "show available crops",
+                 "show crops",
+                 "show all crops",
+                 "show all products",
+                 "show available products",
+                 "open marketplace",
+                 "all crops",
+                 "सभी फसलें दिखाओ",
+                 "सभी फसल दिखाओ",
+                 "सभी फसलें",
+                 "सभी फसल",
+                 "फसल दिखाओ",
+                 "फसलें दिखाओ",
+                 "उपलब्ध फसलें दिखाओ",
+                 "सभी उत्पाद दिखाओ",
+                 "ಎಲ್ಲಾ ಬೆಳೆಗಳನ್ನು ತೋರಿಸು",
+                 "ಎಲ್ಲಾ ಬೆಳೆ ತೋರಿಸು",
+                 "ಎಲ್ಲಾ ಬೆಳೆಗಳು",
+                 "ಬೆಳೆಗಳನ್ನು ತೋರಿಸು",
+                 "ಬೆಳೆ ತೋರಿಸು",
+                 "ಲಭ್ಯವಿರುವ ಬೆಳೆಗಳನ್ನು ತೋರಿಸು",
+                 "ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳನ್ನು ತೋರಿಸು",
+          ];
+
+    const shouldShowCrops = showCropsCommands.some((phrase) =>
+      command.includes(normalizeText(phrase))
+    );
+
+    if (shouldShowCrops) {
+      setSearch("");
+      scrollToCrops();
+      speak(voiceT("showCrops"));
+      return;
+    }
+
+     {
       setSearch("");
       scrollToCrops();
       return speak(voiceT("showCrops"));
     }
 
+    // Purchase commands in English, Hindi and Kannada.
+    const purchasePatterns = [
+      /\b(?:buy|order|purchase|get)\s+(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms?|kilos?)\s+(?:of\s+)?(.+)$/,
+      /(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilograms?)\s+(.+?)\s*(?:खरीदो|खरीदें|ऑर्डर करो|मंगाओ)$/,
+      /(?:खरीदो|खरीदें|ऑर्डर करो|मंगाओ)\s+(\d+(?:\.\d+)?)\s*(?:किलो|किलोग्राम|केजी)\s+(.+)$/,
+      /(\d+(?:\.\d+)?)\s*(?:ಕೆಜಿ|ಕಿಲೋ|ಕಿಲೋಗ್ರಾಂ)\s+(.+?)\s*(?:ಖರೀದಿಸು|ಖರೀದಿಸಿ|ಆರ್ಡರ್ ಮಾಡು)$/,
+      /(?:ಖರೀದಿಸು|ಖರೀದಿಸಿ|ಆರ್ಡರ್ ಮಾಡು)\s+(\d+(?:\.\d+)?)\s*(?:ಕೆಜಿ|ಕಿಲೋ|ಕಿಲೋಗ್ರಾಂ)\s+(.+)$/,
+    ];
+
+    let purchaseMatch = null;
+
+    for (const pattern of purchasePatterns) {
+      purchaseMatch = command.match(pattern);
+      if (purchaseMatch) break;
+    }
+
+    if (purchaseMatch) {
+      const quantity = Number(purchaseMatch[1]);
+
+      const cropName = purchaseMatch[2]
+        .replace(/\b(please|now|for me)\b/g, "")
+        .replace(/^(of|का|की|के)\s+/g, "")
+        .replace(/(कृपया|प्लीज|ದಯವಿಟ್ಟು)$/g, "")
+        .trim();
+
+      const crop = findCropByVoice(cropName);
+
+      if (!crop) {
+        setSearch(cropName);
+        scrollToCrops();
+        return speak(voiceT("noCrop"));
+      }
+
+      return beginVoicePurchase(crop, quantity);
+    }
+
+    // Search commands
     const searchPatterns = [
       /^(?:can you\s+)?(?:search for|search|find|find me|show me|look for)\s+(.+)$/,
       /^i want\s+(.+)$/,
       /^i am looking for\s+(.+)$/,
       /^where can i find\s+(.+)$/,
-      /^(?:खोजो|ढूंढो|ढूँढो|खोजिए)\s+(.+)$/,
-      /^(?:ಹುಡುಕು|ಹುಡುಕಿ|ಹುಡುಕಿಕೊಡು)\s+(.+)$/,
+      /^(?:खोजो|ढूंढो|ढूँढो|खोजिए|खोजें|मुझे दिखाओ|मुझे चाहिए)\s+(.+)$/,
+      /^(?:ಹುಡುಕು|ಹುಡುಕಿ|ಹುಡುಕಿಕೊಡು|ಹುಡುಕಿ ಕೊಡಿ|ನನಗೆ ಬೇಕು|ತೋರಿಸು)\s+(.+)$/,
     ];
 
     let searchTerm = "";
 
     for (const pattern of searchPatterns) {
       const match = command.match(pattern);
+
       if (match?.[1]) {
         searchTerm = match[1].trim();
         break;
       }
     }
 
+    // Also recognize a crop name spoken by itself.
     if (!searchTerm) {
-      const aliases = Object.entries(cropAliases)
-        .flatMap(([english, values]) =>
-          values.map((alias) => ({
-            alias: normalizeText(alias),
-            english,
-          }))
+      const matchingCrop = crops
+        .map((crop) => ({
+          crop,
+          names: getCropVoiceNames(crop),
+        }))
+        .filter(({ names }) =>
+          names.some(
+            (name) =>
+              command === name ||
+              command.includes(name)
+          )
         )
-        .sort((a, b) => b.alias.length - a.alias.length);
+        .sort((a, b) => {
+          const aLength = Math.max(
+            ...a.names.map((name) => name.length)
+          );
 
-      const match = aliases.find(({ alias }) => command.includes(alias));
-      if (match) searchTerm = match.english;
+          const bLength = Math.max(
+            ...b.names.map((name) => name.length)
+          );
+
+          return bLength - aLength;
+        })[0];
+
+      if (matchingCrop) {
+        searchTerm = matchingCrop.crop.crop_name;
+      }
     }
 
     if (searchTerm) {
-      const translated = translateCropName(searchTerm);
-      setSearch(translated);
+      const crop = findCropByVoice(searchTerm);
+      const term = crop?.crop_name || searchTerm;
+
+      setSearch(term);
       scrollToCrops();
 
-      const response =
-        language === "hi-IN"
-          ? `${translated} खोज रही हूँ।`
-          : language === "kn-IN"
-          ? `${translated} ಹುಡುಕುತ್ತಿದ್ದೇನೆ.`
-          : `${voiceT("searching")} ${translated}.`;
+      const response = isHindi
+        ? `${term} खोज रही हूँ।`
+        : isKannada
+        ? `${term} ಹುಡುಕುತ್ತಿದ್ದೇನೆ.`
+        : `${voiceT("searching")} ${term}.`;
 
       return speak(response);
     }
 
+    // Dashboard
     if (
       command.includes("open dashboard") ||
       command.includes("go to dashboard") ||
@@ -862,7 +953,7 @@ function BuyerDashboard() {
       return speak(voiceT("dashboard"));
     }
 
-    speak(voiceT("notUnderstood"));
+    return speak(voiceT("notUnderstood"));
   };
 
   const startVoiceAssistant = () => {
@@ -927,11 +1018,21 @@ function BuyerDashboard() {
     }
   };
 
-  const logout = () => {
-    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-    localStorage.clear();
-    navigate("/login");
-  };
+   const logout = () => {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+
+  sessionStorage.clear();
+
+  localStorage.removeItem("userEmail");
+  localStorage.removeItem("userName");
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("email");
+  localStorage.removeItem("name");
+
+  navigate("/login");
+};
 
   const filtered = crops.filter((crop) =>
     normalizeText(crop.crop_name).includes(normalizeText(search))

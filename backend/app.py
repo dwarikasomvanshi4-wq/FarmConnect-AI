@@ -947,54 +947,65 @@ def delete_crop(id):
 # IMAGE UPLOAD
 # =========================================================
 
+
+# =========================================================
+# IMAGE UPLOAD
+# =========================================================
+
 @app.route("/upload-image", methods=["POST"])
 def upload_image():
-
     if "image" not in request.files:
-
-        return jsonify({
-            "message": "No image uploaded"
-        }), 400
-
+        return jsonify({"error": "No image uploaded"}), 400
 
     file = request.files["image"]
 
+    if not file or not file.filename:
+        return jsonify({"error": "No file selected"}), 400
 
-    if file.filename == "":
+    original_filename = secure_filename(file.filename)
+
+    if not original_filename:
+        return jsonify({"error": "Invalid filename"}), 400
+
+    extension = os.path.splitext(original_filename)[1].lower()
+    filename = f"{uuid4().hex}{extension}"
+
+    upload_folder = app.config["UPLOAD_FOLDER"]
+    os.makedirs(upload_folder, exist_ok=True)
+
+    filepath = os.path.join(upload_folder, filename)
+
+    try:
+        file.save(filepath)
+
+        # Generate a browser-accessible image URL.
+        image_url = request.host_url.rstrip("/") + f"/uploads/{filename}"
 
         return jsonify({
-            "message": "No file selected"
-        }), 400
+            "message": "Image uploaded successfully",
+            "filename": filename,
+            "file_path": image_url,
+            "image_url": image_url
+        }), 201
 
+    except Exception:
+        app.logger.exception("IMAGE UPLOAD ERROR")
 
-    filename = secure_filename(file.filename)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
 
-
-    filepath = os.path.join(
-        app.config["UPLOAD_FOLDER"],
-        filename
-    )
-
-
-    file.save(filepath)
-
-
-    return jsonify({
-
-        "message": "Image Uploaded Successfully",
-
-        "file_path": filepath
-
-    })
+        return jsonify({"error": "Unable to upload image"}), 500
 
 
 # =========================================================
 # SERVE UPLOADED IMAGES
 # =========================================================
 
-@app.route("/uploads/<filename>")
+@app.route("/uploads/<path:filename>", methods=["GET"])
 def uploaded_file(filename):
-
     return send_from_directory(
         app.config["UPLOAD_FOLDER"],
         filename

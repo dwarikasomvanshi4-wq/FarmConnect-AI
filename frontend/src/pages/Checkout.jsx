@@ -33,8 +33,8 @@ function Checkout() {
   const [placed, setPlaced] = useState(false);
 
   const buyerEmail =
-    localStorage.getItem("userEmail") ||
-    localStorage.getItem("email") ||
+    sessionStorage.getItem("userEmail") ||
+  sessionStorage.getItem("email");
     "";
 
   const price = Number(crop?.price);

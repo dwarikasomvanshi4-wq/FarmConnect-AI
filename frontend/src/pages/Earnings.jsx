@@ -2,21 +2,132 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { useLanguage } from "../i18n/LanguageContext";
+
+const translations = {
+  en: {
+    back: "← Go Back",
+    title: "My Earnings",
+    description: "Track completed sales, payment status, and orders placed for your crops.",
+    loading: "Loading your earnings overview...",
+    login: "Please log in to view your earnings overview.",
+    error: "Could not load your orders. Please try again.",
+    completed: "Completed Sales Value",
+    delivered: "delivered order(s)",
+    accepted: "Accepted Orders",
+    pending: "Pending Orders",
+    rejected: "Rejected Orders",
+    shipped: "Shipped Orders",
+    confirmed: "Confirmed Payments",
+    paid: "paid order(s)",
+    deliveredPending: "Delivered, Payment Pending",
+    awaitingPayment: "order(s) awaiting payment confirmation",
+    total: "Total Orders",
+    allStatuses: "All order statuses",
+    orderValue: "Order value:",
+    excluded: "Excluded from completed sales",
+    awaitingDelivery: "Awaiting delivery",
+    history: "Order History",
+    noOrders: "No orders found for your account yet.",
+    crop: "Crop",
+    quantity: "Quantity",
+    value: "Order Value",
+    date: "Date",
+    status: "Status",
+    paymentStatus: "Payment Status",
+    paymentPending: "Pending",
+    explanation: "Completed sales value includes delivered orders. Confirmed payments include only orders marked Paid in the backend. A delivered COD order is not counted as confirmed payment until the farmer confirms receipt of cash.",
+    manage: "Manage Orders",
+  },
+  hi: {
+    back: "← वापस जाएँ",
+    title: "मेरी कमाई",
+    description: "पूरी हुई बिक्री, भुगतान की स्थिति और आपकी फसलों के ऑर्डर देखें।",
+    loading: "कमाई की जानकारी लोड हो रही है...",
+    login: "कमाई देखने के लिए कृपया लॉग इन करें।",
+    error: "आपके ऑर्डर लोड नहीं हो सके। कृपया फिर से प्रयास करें।",
+    completed: "पूरी हुई बिक्री का मूल्य",
+    delivered: "डिलीवर किए गए ऑर्डर",
+    accepted: "स्वीकृत ऑर्डर",
+    pending: "लंबित ऑर्डर",
+    rejected: "अस्वीकृत ऑर्डर",
+    shipped: "भेजे गए ऑर्डर",
+    confirmed: "पुष्ट भुगतान",
+    paid: "भुगतान किए गए ऑर्डर",
+    deliveredPending: "डिलीवर हुए, भुगतान लंबित",
+    awaitingPayment: "ऑर्डर के भुगतान की पुष्टि बाकी है",
+    total: "कुल ऑर्डर",
+    allStatuses: "सभी ऑर्डर स्थितियाँ",
+    orderValue: "ऑर्डर का मूल्य:",
+    excluded: "पूरी हुई बिक्री में शामिल नहीं",
+    awaitingDelivery: "डिलीवरी बाकी है",
+    history: "ऑर्डर इतिहास",
+    noOrders: "अभी आपके खाते में कोई ऑर्डर नहीं मिला।",
+    crop: "फसल",
+    quantity: "मात्रा",
+    value: "ऑर्डर का मूल्य",
+    date: "तारीख",
+    status: "स्थिति",
+    paymentStatus: "भुगतान की स्थिति",
+    paymentPending: "लंबित",
+    explanation: "पूरी हुई बिक्री में डिलीवर किए गए ऑर्डर शामिल हैं। पुष्ट भुगतान में केवल वे ऑर्डर शामिल हैं जिन्हें बैकएंड में Paid चिह्नित किया गया है। डिलीवर किया गया COD ऑर्डर तब तक पुष्ट भुगतान नहीं माना जाता जब तक किसान नकद प्राप्ति की पुष्टि न करे।",
+    manage: "ऑर्डर प्रबंधित करें",
+  },
+  kn: {
+    back: "← ಹಿಂದಕ್ಕೆ ಹೋಗಿ",
+    title: "ನನ್ನ ಆದಾಯ",
+    description: "ಪೂರ್ಣಗೊಂಡ ಮಾರಾಟ, ಪಾವತಿ ಸ್ಥಿತಿ ಮತ್ತು ನಿಮ್ಮ ಬೆಳೆಗಳಿಗೆ ಬಂದ ಆರ್ಡರ್‌ಗಳನ್ನು ಪರಿಶೀಲಿಸಿ.",
+    loading: "ನಿಮ್ಮ ಆದಾಯದ ಮಾಹಿತಿ ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+    login: "ನಿಮ್ಮ ಆದಾಯವನ್ನು ನೋಡಲು ದಯವಿಟ್ಟು ಲಾಗಿನ್ ಮಾಡಿ.",
+    error: "ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    completed: "ಪೂರ್ಣಗೊಂಡ ಮಾರಾಟದ ಮೌಲ್ಯ",
+    delivered: "ವಿತರಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
+    accepted: "ಸ್ವೀಕರಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
+    pending: "ಬಾಕಿ ಇರುವ ಆರ್ಡರ್‌ಗಳು",
+    rejected: "ತಿರಸ್ಕರಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
+    shipped: "ರವಾನಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
+    confirmed: "ದೃಢೀಕೃತ ಪಾವತಿಗಳು",
+    paid: "ಪಾವತಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
+    deliveredPending: "ವಿತರಿಸಲಾಗಿದೆ, ಪಾವತಿ ಬಾಕಿ ಇದೆ",
+    awaitingPayment: "ಆರ್ಡರ್‌ಗಳ ಪಾವತಿ ದೃಢೀಕರಣ ಬಾಕಿ ಇದೆ",
+    total: "ಒಟ್ಟು ಆರ್ಡರ್‌ಗಳು",
+    allStatuses: "ಎಲ್ಲಾ ಆರ್ಡರ್ ಸ್ಥಿತಿಗಳು",
+    orderValue: "ಆರ್ಡರ್ ಮೌಲ್ಯ:",
+    excluded: "ಪೂರ್ಣಗೊಂಡ ಮಾರಾಟದಲ್ಲಿ ಸೇರಿಸಲಾಗಿಲ್ಲ",
+    awaitingDelivery: "ವಿತರಣೆಗಾಗಿ ಕಾಯುತ್ತಿದೆ",
+    history: "ಆರ್ಡರ್ ಇತಿಹಾಸ",
+    noOrders: "ನಿಮ್ಮ ಖಾತೆಯಲ್ಲಿ ಇನ್ನೂ ಯಾವುದೇ ಆರ್ಡರ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ.",
+    crop: "ಬೆಳೆ",
+    quantity: "ಪ್ರಮಾಣ",
+    value: "ಆರ್ಡರ್ ಮೌಲ್ಯ",
+    date: "ದಿನಾಂಕ",
+    status: "ಸ್ಥಿತಿ",
+    paymentStatus: "ಪಾವತಿ ಸ್ಥಿತಿ",
+    paymentPending: "ಬಾಕಿ ಇದೆ",
+    explanation: "ಪೂರ್ಣಗೊಂಡ ಮಾರಾಟದಲ್ಲಿ ವಿತರಿಸಿದ ಆರ್ಡರ್‌ಗಳು ಸೇರಿವೆ. ದೃಢೀಕೃತ ಪಾವತಿಗಳಲ್ಲಿ ಬ್ಯಾಕೆಂಡ್‌ನಲ್ಲಿ Paid ಎಂದು ಗುರುತಿಸಿದ ಆರ್ಡರ್‌ಗಳು ಮಾತ್ರ ಸೇರಿವೆ. ರೈತರು ನಗದು ಸ್ವೀಕೃತಿಯನ್ನು ದೃಢೀಕರಿಸುವವರೆಗೆ ವಿತರಿಸಿದ COD ಆರ್ಡರ್ ದೃಢೀಕೃತ ಪಾವತಿಯಾಗಿ ಪರಿಗಣಿಸಲಾಗುವುದಿಲ್ಲ.",
+    manage: "ಆರ್ಡರ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಿ",
+  },
+};
 
 function Earnings() {
   const navigate = useNavigate();
+  const { language } = useLanguage();
+
+  const lang = translations[language] ? language : "en";
+  const t = translations[lang];
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const farmerEmail =
-    localStorage.getItem("userEmail") ||
-    localStorage.getItem("email");
+    sessionStorage.getItem("userEmail") ||
+    sessionStorage.getItem("email");
 
   useEffect(() => {
     const loadOrders = async () => {
       if (!farmerEmail) {
-        setError("Please log in to view your earnings overview.");
+        setError(t.login);
         setLoading(false);
         return;
       }
@@ -25,22 +136,21 @@ function Earnings() {
         const response = await api.get(
           `/farmer-orders/${encodeURIComponent(farmerEmail)}`
         );
-
         setOrders(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         console.error("Failed to load earnings:", err);
-        setError("Could not load your orders. Please try again.");
+        setError(t.error);
       } finally {
         setLoading(false);
       }
     };
 
     loadOrders();
-  }, [farmerEmail]);
+  }, [farmerEmail, t.login, t.error]);
 
   const pendingOrders = orders.filter(
-  (order) => ["Pending", "Accepted"].includes(order.status)
-);
+    (order) => ["Pending", "Accepted"].includes(order.status)
+  );
 
   const acceptedOrders = orders.filter(
     (order) => order.status === "Accepted"
@@ -58,37 +168,32 @@ function Earnings() {
     (order) => order.status === "Delivered"
   );
 
+  const paidOrders = orders.filter(
+    (order) => (order.payment_status || "").toLowerCase() === "paid"
+  );
+
+  const pendingPaymentOrders = orders.filter(
+    (order) => (order.payment_status || "Pending").toLowerCase() !== "paid"
+  );
+
   const completedSalesValue = deliveredOrders.reduce(
-    (total, order) => total + Number(order.total_price || 0),
-    0
+    (total, order) => total + Number(order.total_price || 0), 0
   );
 
   const acceptedOrderValue = acceptedOrders.reduce(
-    (total, order) => total + Number(order.total_price || 0),
-    0
+    (total, order) => total + Number(order.total_price || 0), 0
   );
 
   const pendingOrderValue = pendingOrders.reduce(
-    (total, order) => total + Number(order.total_price || 0),
-    0
+    (total, order) => total + Number(order.total_price || 0), 0
   );
 
-  const paidOrders = orders.filter(
-  (order) => (order.payment_status || "").toLowerCase() === "paid"
-);
-
-const pendingPaymentOrders = orders.filter(
-  (order) => (order.payment_status || "Pending").toLowerCase() !== "paid"
-);
-
   const confirmedPaymentsValue = paidOrders.reduce(
-    (total, order) => total + Number(order.total_price || 0),
-    0
+    (total, order) => total + Number(order.total_price || 0), 0
   );
 
   const pendingPaymentValue = pendingPaymentOrders.reduce(
-    (total, order) => total + Number(order.total_price || 0),
-    0
+    (total, order) => total + Number(order.total_price || 0), 0
   );
 
   const money = (value) =>
@@ -107,8 +212,59 @@ const pendingPaymentOrders = orders.filter(
   };
 
   if (loading) {
-    return <div style={{ padding: 32 }}>Loading your earnings overview...</div>;
+    return <div style={{ padding: 32 }}>{t.loading}</div>;
   }
+
+  const cards = [
+    {
+      title: t.completed,
+      value: money(completedSalesValue),
+      detail: `${deliveredOrders.length} ${t.delivered}`,
+      color: "#176b42",
+    },
+    {
+      title: t.accepted,
+      value: acceptedOrders.length,
+      detail: `${t.orderValue} ${money(acceptedOrderValue)}`,
+      color: "#2766a3",
+    },
+    {
+      title: t.pending,
+      value: pendingOrders.length,
+      detail: `${t.orderValue} ${money(pendingOrderValue)}`,
+      color: "#b7791f",
+    },
+    {
+      title: t.rejected,
+      value: rejectedOrders.length,
+      detail: t.excluded,
+      color: "#b83232",
+    },
+    {
+      title: t.shipped,
+      value: shippedOrders.length,
+      detail: t.awaitingDelivery,
+      color: "#805ad5",
+    },
+    {
+      title: t.confirmed,
+      value: money(confirmedPaymentsValue),
+      detail: `${paidOrders.length} ${t.paid}`,
+      color: "#176b42",
+    },
+    {
+      title: t.deliveredPending,
+      value: money(pendingPaymentValue),
+      detail: `${pendingPaymentOrders.length} ${t.awaitingPayment}`,
+      color: "#b7791f",
+    },
+    {
+      title: t.total,
+      value: orders.length,
+      detail: t.allStatuses,
+      color: "#203528",
+    },
+  ];
 
   return (
     <div
@@ -133,17 +289,17 @@ const pendingPaymentOrders = orders.filter(
             color: "#28553b",
           }}
         >
-          ← Go Back
+          {t.back}
         </button>
 
         <p style={{ color: "#398153", fontWeight: "bold", marginTop: 28 }}>
           FARMCONNECT AI
         </p>
 
-        <h1 style={{ marginBottom: 8 }}>My Earnings</h1>
+        <h1 style={{ marginBottom: 8 }}>{t.title}</h1>
 
         <p style={{ color: "#718176", lineHeight: 1.7 }}>
-          Track completed sales, payment status, and orders placed for your crops.
+          {t.description}
         </p>
 
         {error && (
@@ -170,108 +326,26 @@ const pendingPaymentOrders = orders.filter(
                 marginTop: 28,
               }}
             >
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Completed Sales Value
-                </p>
-                <h2 style={{ color: "#176b42", marginBottom: 8 }}>
-                  {money(completedSalesValue)}
-                </h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  {deliveredOrders.length} delivered order(s)
-                </p>
-              </div>
-
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Accepted Orders
-                </p>
-                <h2 style={{ color: "#2766a3", marginBottom: 8 }}>
-                  {acceptedOrders.length}
-                </h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  Order value: {money(acceptedOrderValue)}
-                </p>
-              </div>
-
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Pending Orders
-                </p>
-                <h2 style={{ color: "#b7791f", marginBottom: 8 }}>
-                  {pendingOrders.length}
-                </h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  Order value: {money(pendingOrderValue)}
-                </p>
-              </div>
-
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Rejected Orders
-                </p>
-                <h2 style={{ color: "#b83232", marginBottom: 8 }}>
-                  {rejectedOrders.length}
-                </h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  Excluded from completed sales
-                </p>
-              </div>
-
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Shipped Orders
-                </p>
-                <h2 style={{ color: "#805ad5", marginBottom: 8 }}>
-                  {shippedOrders.length}
-                </h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  Awaiting delivery
-                </p>
-              </div>
-
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Confirmed Payments
-                </p>
-                <h2 style={{ color: "#176b42", marginBottom: 8 }}>
-                  {money(confirmedPaymentsValue)}
-                </h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  {paidOrders.length} paid order(s)
-                </p>
-              </div>
-
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Delivered, Payment Pending
-                </p>
-                <h2 style={{ color: "#b7791f", marginBottom: 8 }}>
-                  {money(pendingPaymentValue)}
-                </h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  {pendingPaymentOrders.length} order(s) awaiting payment confirmation
-                </p>
-              </div>
-
-              <div style={cardStyle}>
-                <p style={{ color: "#718176", marginTop: 0 }}>
-                  Total Orders
-                </p>
-                <h2 style={{ marginBottom: 8 }}>{orders.length}</h2>
-                <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
-                  All order statuses
-                </p>
-              </div>
+              {cards.map((card) => (
+                <div style={cardStyle} key={card.title}>
+                  <p style={{ color: "#718176", marginTop: 0 }}>
+                    {card.title}
+                  </p>
+                  <h2 style={{ color: card.color, marginBottom: 8 }}>
+                    {card.value}
+                  </h2>
+                  <p style={{ color: "#718176", fontSize: 13, marginBottom: 0 }}>
+                    {card.detail}
+                  </p>
+                </div>
+              ))}
             </div>
 
             <div style={{ ...cardStyle, marginTop: 26, overflowX: "auto" }}>
-              <h2 style={{ marginTop: 0 }}>Order History</h2>
+              <h2 style={{ marginTop: 0 }}>{t.history}</h2>
 
               {orders.length === 0 ? (
-                <p style={{ color: "#718176" }}>
-                  No orders found for your account yet.
-                </p>
+                <p style={{ color: "#718176" }}>{t.noOrders}</p>
               ) : (
                 <table
                   style={{
@@ -283,24 +357,19 @@ const pendingPaymentOrders = orders.filter(
                 >
                   <thead>
                     <tr style={{ background: "#f4f8f3" }}>
-                      {[
-                        "Crop",
-                        "Quantity",
-                        "Order Value",
-                        "Date",
-                        "Status",
-                        "Payment Status",
-                      ].map((heading) => (
-                        <th
-                          key={heading}
-                          style={{
-                            padding: 13,
-                            borderBottom: "1px solid #e1ebe2",
-                          }}
-                        >
-                          {heading}
-                        </th>
-                      ))}
+                      {[t.crop, t.quantity, t.value, t.date, t.status, t.paymentStatus].map(
+                        (heading) => (
+                          <th
+                            key={heading}
+                            style={{
+                              padding: 13,
+                              borderBottom: "1px solid #e1ebe2",
+                            }}
+                          >
+                            {heading}
+                          </th>
+                        )
+                      )}
                     </tr>
                   </thead>
 
@@ -323,7 +392,7 @@ const pendingPaymentOrders = orders.filter(
                           {order.status}
                         </td>
                         <td style={{ padding: 13, borderBottom: "1px solid #edf1ed" }}>
-                          {order.payment_status || "Pending"}
+                          {order.payment_status || t.paymentPending}
                         </td>
                       </tr>
                     ))}
@@ -333,10 +402,7 @@ const pendingPaymentOrders = orders.filter(
             </div>
 
             <p style={{ marginTop: 18, color: "#718176", fontSize: 13, lineHeight: 1.6 }}>
-              Completed sales value includes delivered orders. Confirmed payments
-              include only orders marked Paid in the backend. A delivered COD
-              order is not counted as confirmed payment until the farmer confirms
-              receipt of cash.
+              {t.explanation}
             </p>
 
             <button
@@ -352,7 +418,7 @@ const pendingPaymentOrders = orders.filter(
                 cursor: "pointer",
               }}
             >
-              Manage Orders
+              {t.manage}
             </button>
           </>
         )}

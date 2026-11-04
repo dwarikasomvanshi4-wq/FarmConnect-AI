@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 function Profile() {
   const navigate = useNavigate();
 
-  const email = localStorage.getItem("userEmail") || "";
-  const name = localStorage.getItem("userName") || "";
-  const role = localStorage.getItem("userRole") || "";
+  const email = sessionStorage.getItem("userEmail") || "";
+  const name = sessionStorage.getItem("userName") || "";
+  const role = sessionStorage.getItem("userRole") || "";
 
   const displayName = name || "FarmConnect User";
   const displayRole = role
