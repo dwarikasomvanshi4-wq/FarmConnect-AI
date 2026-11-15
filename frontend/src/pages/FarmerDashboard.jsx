@@ -114,8 +114,18 @@ const translations = {
     cabbage: "Cabbage",
     weatherPage: "Opening the weather page.",
     recognizedAs: "You said:",
-    commandHelp: "Say Add Crop, My Crops, Weather, My Orders, or Dashboard.",
+    commandHelp: "Say Add Crop, My Crops, Weather, My Orders, Dashboard, Available Stock, Total Earnings, or Low Stock.",
     locationLoading: "Loading...",
+    analyticsTitle: "Sales Analytics",
+analyticsDesc: "Track your monthly earnings and best-selling crops.",
+monthlyEarnings: "Monthly Earnings",
+paidOrders: "Paid Orders",
+bestSellingCrops: "Best-Selling Crops",
+quantitySold: "Quantity Sold",
+noSalesData: "No paid sales recorded in the last 6 months.",
+noCropSales: "No crop sales data available yet.",
+lastSixMonths: "Last 6 Months",
+kgSold: "kg sold",
   },
 
   "hi-IN": {
@@ -207,8 +217,18 @@ const translations = {
     cabbage: "पत्तागोभी",
     weatherPage: "मौसम का पेज खोल रहा हूँ।",
     recognizedAs: "आपने कहा:",
-    commandHelp: "फसल जोड़ें, मेरी फसलें, मौसम, मेरे ऑर्डर या डैशबोर्ड बोलें।",
+    commandHelp: "फसल जोड़ें, मेरी फसलें, मौसम, मेरे ऑर्डर, डैशबोर्ड, उपलब्ध स्टॉक, कुल कमाई या कम स्टॉक बोलें।",
     locationLoading: "लोड हो रहा है...",
+    analyticsTitle: "बिक्री विश्लेषण",
+analyticsDesc: "अपनी मासिक कमाई और सबसे ज्यादा बिकने वाली फसलें देखें।",
+monthlyEarnings: "मासिक कमाई",
+paidOrders: "भुगतान किए गए ऑर्डर",
+bestSellingCrops: "सबसे ज्यादा बिकने वाली फसलें",
+quantitySold: "बेची गई मात्रा",
+noSalesData: "पिछले 6 महीनों में कोई भुगतान वाली बिक्री दर्ज नहीं हुई।",
+noCropSales: "अभी फसल बिक्री का डेटा उपलब्ध नहीं है।",
+lastSixMonths: "पिछले 6 महीने",
+kgSold: "किलो बिका",
   },
 
   "kn-IN": {
@@ -300,8 +320,18 @@ const translations = {
     cabbage: "ಎಲೆಕೋಸು",
     weatherPage: "ಹವಾಮಾನ ಪುಟವನ್ನು ತೆರೆಯುತ್ತಿದ್ದೇನೆ.",
     recognizedAs: "ನೀವು ಹೇಳಿದ್ದು:",
-    commandHelp: "ಬೆಳೆ ಸೇರಿಸಿ, ನನ್ನ ಬೆಳೆಗಳು, ಹವಾಮಾನ, ನನ್ನ ಆರ್ಡರ್‌ಗಳು ಅಥವಾ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ಎಂದು ಹೇಳಿ.",
+    commandHelp: "ಬೆಳೆ ಸೇರಿಸಿ, ನನ್ನ ಬೆಳೆಗಳು, ಹವಾಮಾನ, ನನ್ನ ಆರ್ಡರ್‌ಗಳು, ಡ್ಯಾಶ್‌ಬೋರ್ಡ್, ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್, ಒಟ್ಟು ಆದಾಯ ಅಥವಾ ಕಡಿಮೆ ಸ್ಟಾಕ್ ಎಂದು ಹೇಳಿ.",
     locationLoading: "ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+    analyticsTitle: "ಮಾರಾಟ ವಿಶ್ಲೇಷಣೆ",
+analyticsDesc: "ನಿಮ್ಮ ಮಾಸಿಕ ಆದಾಯ ಮತ್ತು ಹೆಚ್ಚು ಮಾರಾಟವಾದ ಬೆಳೆಗಳನ್ನು ನೋಡಿ.",
+monthlyEarnings: "ಮಾಸಿಕ ಆದಾಯ",
+paidOrders: "ಪಾವತಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
+bestSellingCrops: "ಹೆಚ್ಚು ಮಾರಾಟವಾದ ಬೆಳೆಗಳು",
+quantitySold: "ಮಾರಾಟವಾದ ಪ್ರಮಾಣ",
+noSalesData: "ಕಳೆದ 6 ತಿಂಗಳಲ್ಲಿ ಪಾವತಿಸಿದ ಮಾರಾಟ ದಾಖಲಾಗಿಲ್ಲ.",
+noCropSales: "ಇನ್ನೂ ಬೆಳೆ ಮಾರಾಟದ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ.",
+lastSixMonths: "ಕಳೆದ 6 ತಿಂಗಳುಗಳು",
+kgSold: "ಕೆಜಿ ಮಾರಾಟ",
   },
 };
 
@@ -561,6 +591,80 @@ function FarmerDashboard() {
   const lowStockCrops = dashboardCrops.filter(
     (crop) => Number(crop.quantity || 0) <= 10
   );
+  // Only paid orders are counted as confirmed sales.
+const paidOrders = dashboardOrders.filter(
+  (order) =>
+    String(order.payment_status || "").toLowerCase() === "paid"
+);
+
+// Prepare the last 6 months.
+const currentDate = new Date();
+
+const monthlySales = Array.from({ length: 6 }, (_, index) => {
+  const monthDate = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth() - 5 + index,
+    1
+  );
+
+  const monthKey = `${monthDate.getFullYear()}-${String(
+    monthDate.getMonth() + 1
+  ).padStart(2, "0")}`;
+
+  return {
+    key: monthKey,
+    label: monthDate.toLocaleDateString(language, { month: "short" }),
+    earnings: 0,
+    orders: 0,
+  };
+});
+
+paidOrders.forEach((order) => {
+  const orderDate = new Date(order.created_at);
+
+  if (Number.isNaN(orderDate.getTime())) return;
+
+  const monthKey = `${orderDate.getFullYear()}-${String(
+    orderDate.getMonth() + 1
+  ).padStart(2, "0")}`;
+
+  const month = monthlySales.find((item) => item.key === monthKey);
+
+  if (month) {
+    month.earnings += Number(order.total_price || 0);
+    month.orders += 1;
+  }
+});
+
+const highestMonthlyEarnings = Math.max(
+  ...monthlySales.map((month) => month.earnings),
+  1
+);
+
+// Calculate quantity sold for each crop.
+const cropSalesMap = {};
+
+paidOrders.forEach((order) => {
+  const cropName = order.crop_name || "Other";
+
+  if (!cropSalesMap[cropName]) {
+    cropSalesMap[cropName] = 0;
+  }
+
+  cropSalesMap[cropName] += Number(order.quantity || 0);
+});
+
+const bestSellingCrops = Object.entries(cropSalesMap)
+  .map(([name, quantity]) => ({ name, quantity }))
+  .sort((a, b) => b.quantity - a.quantity)
+  .slice(0, 5);
+
+const highestCropQuantity = Math.max(
+  ...bestSellingCrops.map((crop) => crop.quantity),
+  1
+);
+
+const totalPaidOrders = paidOrders.length;
 
   const recentOrders = [...dashboardOrders]
     .sort(
@@ -640,8 +744,104 @@ function FarmerDashboard() {
   const handleVoiceCommand = (command) => {
     const text = normalizeText(command);
     setVoiceText(`${ui.recognizedAs} "${command}"`);
+       const stockDetails = dashboardCrops
+  .filter((crop) => Number(crop.quantity || 0) > 0)
+  .map(
+    (crop) =>
+      `${crop.crop_name}: ${Number(crop.quantity)} kilograms`
+  );
+
+const stockMessage =
+  stockDetails.length === 0
+    ? language === "hi-IN"
+      ? "अभी कोई उपलब्ध फसल स्टॉक नहीं है।"
+      : language === "kn-IN"
+      ? "ಪ್ರಸ್ತುತ ಯಾವುದೇ ಬೆಳೆ ಸ್ಟಾಕ್ ಲಭ್ಯವಿಲ್ಲ."
+      : "You currently have no available crop stock."
+    : language === "hi-IN"
+    ? `आपके पास कुल ${totalAvailableStock} किलो स्टॉक है। फसलों का विवरण: ${stockDetails.join("। ")}।`
+    : language === "kn-IN"
+    ? `ನಿಮ್ಮ ಬಳಿ ಒಟ್ಟು ${totalAvailableStock} ಕೆಜಿ ಸ್ಟಾಕ್ ಇದೆ. ಬೆಳೆಗಳ ವಿವರ: ${stockDetails.join(". ")}.`
+    : `You have a total of ${totalAvailableStock} kilograms of stock. Crop details: ${stockDetails.join(". ")}.`;
+
+    const earningsMessage =
+      language === "hi-IN"
+        ? `आपकी कुल पुष्ट कमाई ${confirmedEarnings} रुपये है।`
+        : language === "kn-IN"
+        ? `ನಿಮ್ಮ ಒಟ್ಟು ದೃಢೀಕೃತ ಆದಾಯ ${confirmedEarnings} ರೂಪಾಯಿಗಳು.`
+        : `Your total confirmed earnings are ${confirmedEarnings} rupees.`;
+
+    const lowStockMessage =
+      lowStockCrops.length === 0
+        ? language === "hi-IN"
+          ? "आपकी किसी भी फसल का स्टॉक कम नहीं है।"
+          : language === "kn-IN"
+          ? "ಯಾವುದೇ ಬೆಳೆಯಲ್ಲಿ ಕಡಿಮೆ ಸ್ಟಾಕ್ ಇಲ್ಲ."
+          : "None of your crops have low stock."
+        : language === "hi-IN"
+        ? `कम स्टॉक वाली फसलें हैं: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} किलो`).join(", ")}।`
+        : language === "kn-IN"
+        ? `ಕಡಿಮೆ ಸ್ಟಾಕ್ ಇರುವ ಬೆಳೆಗಳು: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} ಕೆಜಿ`).join(", ")}.`
+        : `Your low stock crops are: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} kilograms`).join(", ")}.`;
 
     const commands = [
+            {
+        words: [
+          "available stock",
+          "total stock",
+          "how much stock",
+          "check stock",
+          "stock available",
+          "उपलब्ध स्टॉक",
+          "कितना स्टॉक",
+          "ಸ್ಟಾಕ್ ಎಷ್ಟು",
+          "ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್",
+        ],
+        response: stockMessage,
+        fallback: `You have ${totalAvailableStock} kilograms of available crop stock.`,
+        path: null,
+        label: ui.stock,
+      },
+      {
+        words: [
+          "total earnings",
+          "my earnings",
+          "confirmed earnings",
+          "how much money",
+          "total income",
+          "मेरी कमाई",
+          "कुल कमाई",
+          "कितने पैसे",
+          "ಒಟ್ಟು ಆದಾಯ",
+          "ನನ್ನ ಆದಾಯ",
+          "ಒಟ್ಟು ಹಣ",
+        ],
+        response: earningsMessage,
+        fallback: `Your total confirmed earnings are ${confirmedEarnings} rupees.`,
+        path: null,
+        label: ui.earnings,
+      },
+      {
+        words: [
+          "low stock",
+          "show low stock",
+          "which crops are low",
+          "crops needing attention",
+          "कम स्टॉक",
+          "कम फसल",
+          "कम स्टॉक वाली फसल",
+          "ಕಡಿಮೆ ಸ್ಟಾಕ್",
+          "ಕಡಿಮೆ ಬೆಳೆ",
+          "ಸ್ಟಾಕ್ ಕಡಿಮೆ",
+        ],
+        response: lowStockMessage,
+        fallback:
+          lowStockCrops.length === 0
+            ? "None of your crops have low stock."
+            : `Low stock crops: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} kilograms`).join(", ")}.`,
+        path: null,
+        label: ui.lowStock,
+      },
       {
         words: [
           "add crop", "add a crop", "add new crop", "new crop",
@@ -1042,7 +1242,9 @@ function FarmerDashboard() {
                   </button>
                 </div>
 
-                <p className="mt-3 text-xs text-green-100">{ui.trySaying} {ui.addCrop} · {ui.myCrops} · {ui.weather} · {ui.orders} · {ui.help}</p>
+                <p className="mt-3 text-xs text-green-100">
+  {ui.trySaying} {ui.addCrop} · {ui.myCrops} · {ui.weather} · {ui.orders} · {ui.stock} · {ui.earnings} · {ui.lowStock} · {ui.help}
+</p>  
               </div>
             </div>
           </section>
@@ -1254,6 +1456,134 @@ function FarmerDashboard() {
               </button>
             </div>
           </section>
+          {/* SALES ANALYTICS */}
+<section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
+  <div className="flex items-center gap-3">
+    <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
+      <TrendingUp size={25} />
+    </div>
+    <div>
+      <h2 className="text-xl font-bold text-gray-900">
+        {ui.analyticsTitle}
+      </h2>
+      <p className="mt-1 text-sm text-gray-500">
+        {ui.analyticsDesc}
+      </p>
+    </div>
+  </div>
+
+  <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="rounded-xl bg-emerald-50 p-5">
+      <p className="text-sm font-medium text-emerald-800">
+        {ui.monthlyEarnings}
+      </p>
+      <p className="mt-2 text-2xl font-bold text-emerald-950">
+        {formatMoney(
+          monthlySales.reduce((sum, month) => sum + month.earnings, 0)
+        )}
+      </p>
+      <p className="mt-1 text-xs text-emerald-700">
+        {ui.lastSixMonths}
+      </p>
+    </div>
+
+    <div className="rounded-xl bg-blue-50 p-5">
+      <p className="text-sm font-medium text-blue-800">
+        {ui.paidOrders}
+      </p>
+      <p className="mt-2 text-2xl font-bold text-blue-950">
+        {totalPaidOrders}
+      </p>
+      <p className="mt-1 text-xs text-blue-700">
+        {ui.lastSixMonths}
+      </p>
+    </div>
+  </div>
+
+  <div className="mt-7">
+    <h3 className="font-bold text-gray-900">
+      {ui.monthlyEarnings}
+    </h3>
+
+    {totalPaidOrders === 0 ? (
+      <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
+        {ui.noSalesData}
+      </p>
+    ) : (
+      <div className="mt-5 flex h-64 items-end justify-around gap-3 border-b border-gray-200 px-2">
+        {monthlySales.map((month) => (
+          <div
+            key={month.key}
+            className="flex h-full flex-1 flex-col items-center justify-end gap-2"
+          >
+            <span className="text-center text-xs font-semibold text-gray-700">
+              {formatMoney(month.earnings)}
+            </span>
+
+            <div className="flex h-40 w-full items-end justify-center">
+              <div
+                className="w-full max-w-12 rounded-t-lg bg-emerald-600 transition-all"
+                style={{
+                  height: `${
+                    month.earnings > 0
+                      ? Math.max(
+                          (month.earnings / highestMonthlyEarnings) * 100,
+                          4
+                        )
+                      : 0
+                  }%`,
+                }}
+                title={`${month.label}: ${formatMoney(month.earnings)}`}
+              />
+            </div>
+
+            <span className="text-xs font-medium text-gray-500">
+              {month.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  <div className="mt-8">
+    <h3 className="font-bold text-gray-900">
+      {ui.bestSellingCrops}
+    </h3>
+
+    {bestSellingCrops.length === 0 ? (
+      <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
+        {ui.noCropSales}
+      </p>
+    ) : (
+      <div className="mt-4 space-y-4">
+        {bestSellingCrops.map((crop, index) => (
+          <div key={crop.name}>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="font-semibold text-gray-800">
+                {index + 1}. {crop.name}
+              </span>
+              <span className="text-sm font-semibold text-emerald-700">
+                {crop.quantity} {ui.kgSold}
+              </span>
+            </div>
+
+            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-emerald-600"
+                style={{
+                  width: `${
+                    (crop.quantity / highestCropQuantity) * 100
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</section>
 
           <section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">

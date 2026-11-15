@@ -830,11 +830,7 @@ const buyerName = sessionStorage.getItem("userName") || "Buyer";
       return;
     }
 
-     {
-      setSearch("");
-      scrollToCrops();
-      return speak(voiceT("showCrops"));
-    }
+     
 
     // Purchase commands in English, Hindi and Kannada.
     const purchasePatterns = [
@@ -1898,12 +1894,14 @@ const buyerName = sessionStorage.getItem("userName") || "Buyer";
                     key={crop.id}
                     className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition"
                   >
-                    {crop.image_url ? (
-                      <img
-                        src={getImageUrl(crop.image_url)}
-                        alt={crop.crop_name}
-                        className="w-full h-48 object-cover"
-                      />
+                    
+{crop.image_url || crop.image ? (
+  <img
+    src={getImageUrl(crop.image_url || crop.image)}
+    alt={crop.crop_name}
+    className="w-full h-48 object-cover"
+  />
+
                     ) : (
                       <div className="h-48 bg-green-50 flex items-center justify-center">
                         <Package size={60} className="text-green-300" />

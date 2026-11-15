@@ -4,8 +4,6 @@ import time
 
 import requests
 from uuid import uuid4
-from PIL import Image, UnidentifiedImageError
-from disease_detector import predict_plant_disease
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -1860,47 +1858,6 @@ def reset_password():
         }), 500
 
 
-@app.route("/detect-disease", methods=["POST"])
-def detect_disease():
-    if "image" not in request.files:
-        return jsonify({"error": "No image uploaded"}), 400
-
-    file = request.files["image"]
-
-    if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
-
-    filepath = os.path.join(
-        app.config["UPLOAD_FOLDER"],
-        f"disease_scan_{uuid4().hex}.jpg"
-    )
-
-    try:
-        image = Image.open(file.stream).convert("RGB")
-        image.save(filepath, format="JPEG")
-
-        result = predict_plant_disease(filepath)
-        return jsonify(result), 200
-
-    except UnidentifiedImageError:
-        return jsonify({
-            "error": "Please upload a valid image file."
-        }), 400
-
-    except Exception:
-        app.logger.exception("Disease detection failed")
-        return jsonify({
-            "error": "Disease detection failed. Check the backend terminal."
-        }), 500
-
-    finally:
-        if os.path.exists(filepath):
-            try:
-                os.remove(filepath)
-            except OSError:
-                app.logger.warning(
-                    "Could not remove temporary disease scan."
-                )
 
 
 @app.route("/confirm-cod-payment/<int:id>", methods=["PUT"])
