@@ -1,22 +1,10 @@
-
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import {
-  Bell,
-  Sun,
-  Sprout,
-  ShoppingBag,
-  IndianRupee,
-  CloudSun,
-  Mic,
-  MicOff,
-  Volume2,
-  AlertTriangle,
-  RefreshCw,
-  Package,
-  CheckCircle2,
-  TrendingUp,
+  Bell, Sun, Sprout, ShoppingBag, IndianRupee, CloudSun,
+  Mic, MicOff, Volume2, AlertTriangle, RefreshCw, Package,
+  CheckCircle2, TrendingUp, Download
 } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -48,7 +36,6 @@ const translations = {
     noOrders: "No orders yet. Your orders will appear here.",
     noCrops: "No crops listed yet.",
     sales: "Your Farming Snapshot",
-    chart: "Your sales data will appear here as orders arrive.",
     quantity: "Quantity",
     status: "Status",
     payment: "Payment",
@@ -60,8 +47,7 @@ const translations = {
     dashboardError: "Unable to refresh dashboard data.",
     tagline1: "Grow smarter.",
     tagline2: "Sell better.",
-    farmDescription:
-      "Keep track of your crops, monitor stock, manage orders and follow your confirmed payments from one place.",
+    farmDescription: "Keep track of your crops, monitor stock, manage orders and follow your confirmed payments from one place.",
     language: "Language",
     liveInfo: "Live information from your FarmConnect account",
     autoRefresh: "Auto-refreshing",
@@ -80,8 +66,7 @@ const translations = {
     perKg: "Per kg",
     previousDate: "Versus the previous recorded date",
     farmingAtGlance: "Farming at a glance",
-    farmingDescription:
-      "Your inventory and orders update automatically while this page is open.",
+    farmingDescription: "Your inventory and orders update automatically while this page is open.",
     listedVarieties: "Listed crop varieties",
     ordersReceived: "Orders received",
     cropsAttention: "Crops needing attention",
@@ -91,8 +76,7 @@ const translations = {
     weatherLoading: "Loading...",
     weatherUnsupported: "Location is not supported by this browser.",
     weatherLoadError: "Unable to load current weather.",
-    weatherPermission:
-      "Allow location access to see weather for your current area.",
+    weatherPermission: "Allow location access to see weather for your current area.",
     speechUnsupported: "Speech output is not supported by this browser.",
     assistantSpeaking: "Assistant is speaking...",
     responseCompleted: "Response completed.",
@@ -104,8 +88,7 @@ const translations = {
     cropOrder: "Crop order",
     pending: "Pending",
     priceChartTitle: "price history (₹/kg)",
-    priceDisclaimer:
-      "Prices are inferred from FarmConnect-AI order records, not official market prices. This chart shows historical data only and does not guarantee future prices.",
+    priceDisclaimer: "Prices are inferred from FarmConnect-AI order records, not official market prices. This chart shows historical data only and does not guarantee future prices.",
     loginAgain: "User email not found. Please log in again.",
     priceLoadError: "Unable to load crop price history. Please try again.",
     crop: "Crop",
@@ -117,15 +100,26 @@ const translations = {
     commandHelp: "Say Add Crop, My Crops, Weather, My Orders, Dashboard, Available Stock, Total Earnings, or Low Stock.",
     locationLoading: "Loading...",
     analyticsTitle: "Sales Analytics",
-analyticsDesc: "Track your monthly earnings and best-selling crops.",
-monthlyEarnings: "Monthly Earnings",
-paidOrders: "Paid Orders",
-bestSellingCrops: "Best-Selling Crops",
-quantitySold: "Quantity Sold",
-noSalesData: "No paid sales recorded in the last 6 months.",
-noCropSales: "No crop sales data available yet.",
-lastSixMonths: "Last 6 Months",
-kgSold: "kg sold",
+    analyticsDesc: "Track your earnings and best-selling crops.",
+    monthlyEarnings: "Sales Earnings",
+    paidOrders: "Paid Orders",
+    deliveredOrders: "Delivered Orders",
+    bestSellingCrops: "Best-Selling Crops",
+    quantitySold: "Quantity Sold",
+    noSalesData: "No delivered sales recorded in this period.",
+    noCropSales: "No crop sales data available yet.",
+    lastSixMonths: "Last 6 Months",
+    today: "Today",
+    thisWeek: "This Week",
+    thisMonth: "This Month",
+    kgSold: "kg sold",
+    filterSales: "Filter Sales By",
+    downloadReport: "Download Sales Report",
+    downloadDescription: "Download delivered orders for the selected period.",
+    totalSales: "Total Sales",
+    totalStock: "Total Available Stock",
+    weatherRetry: "Retry weather",
+    refreshSuccess: "Dashboard refreshed."
   },
 
   "hi-IN": {
@@ -149,10 +143,8 @@ kgSold: "kg sold",
     refresh: "रीफ्रेश",
     lowStock: "कम स्टॉक",
     noLowStock: "सभी फसलों का स्टॉक 10 किलो से अधिक है।",
-    noOrders: "अभी कोई ऑर्डर नहीं है। आपके ऑर्डर यहाँ दिखाई देंगे।",
-    noCrops: "अभी कोई फसल सूचीबद्ध नहीं है।",
+    noOrders: "अभी कोई ऑर्डर नहीं है।",
     sales: "आपकी खेती की जानकारी",
-    chart: "ऑर्डर आने पर बिक्री की जानकारी यहाँ दिखेगी।",
     quantity: "मात्रा",
     status: "स्थिति",
     payment: "भुगतान",
@@ -164,8 +156,7 @@ kgSold: "kg sold",
     dashboardError: "डैशबोर्ड डेटा अपडेट नहीं हो पाया।",
     tagline1: "समझदारी से खेती करें।",
     tagline2: "बेहतर बिक्री करें।",
-    farmDescription:
-      "अपनी फसलों, स्टॉक, ऑर्डर और पुष्ट भुगतानों की जानकारी एक ही जगह देखें।",
+    farmDescription: "अपनी फसलों, स्टॉक, ऑर्डर और पुष्ट भुगतानों की जानकारी एक ही जगह देखें।",
     language: "भाषा",
     liveInfo: "आपके FarmConnect खाते की लाइव जानकारी",
     autoRefresh: "अपने आप अपडेट हो रहा है",
@@ -184,8 +175,7 @@ kgSold: "kg sold",
     perKg: "प्रति किलो",
     previousDate: "पिछली दर्ज तारीख की तुलना में",
     farmingAtGlance: "खेती की एक झलक",
-    farmingDescription:
-      "यह पेज खुला रहने पर आपकी इन्वेंटरी और ऑर्डर अपने आप अपडेट होते हैं।",
+    farmingDescription: "यह पेज खुला रहने पर आपकी इन्वेंटरी और ऑर्डर अपने आप अपडेट होते हैं।",
     listedVarieties: "सूचीबद्ध फसलें",
     ordersReceived: "प्राप्त ऑर्डर",
     cropsAttention: "ध्यान देने वाली फसलें",
@@ -207,10 +197,9 @@ kgSold: "kg sold",
     cropOrder: "फसल का ऑर्डर",
     pending: "लंबित",
     priceChartTitle: "मूल्य इतिहास (₹/किलो)",
-    priceDisclaimer:
-      "कीमतें FarmConnect-AI के ऑर्डर रिकॉर्ड से अनुमानित हैं, आधिकारिक बाज़ार मूल्य नहीं हैं। यह चार्ट केवल पुराने डेटा को दिखाता है और भविष्य की कीमतों की गारंटी नहीं देता।",
+    priceDisclaimer: "कीमतें FarmConnect-AI के ऑर्डर रिकॉर्ड से अनुमानित हैं, आधिकारिक बाज़ार मूल्य नहीं हैं।",
     loginAgain: "उपयोगकर्ता का ईमेल नहीं मिला। कृपया फिर से लॉग इन करें।",
-    priceLoadError: "फसल के मूल्य का इतिहास लोड नहीं हो पाया। फिर से कोशिश करें।",
+    priceLoadError: "फसल के मूल्य का इतिहास लोड नहीं हो पाया।",
     crop: "फसल",
     tomato: "टमाटर",
     potato: "आलू",
@@ -220,15 +209,25 @@ kgSold: "kg sold",
     commandHelp: "फसल जोड़ें, मेरी फसलें, मौसम, मेरे ऑर्डर, डैशबोर्ड, उपलब्ध स्टॉक, कुल कमाई या कम स्टॉक बोलें।",
     locationLoading: "लोड हो रहा है...",
     analyticsTitle: "बिक्री विश्लेषण",
-analyticsDesc: "अपनी मासिक कमाई और सबसे ज्यादा बिकने वाली फसलें देखें।",
-monthlyEarnings: "मासिक कमाई",
-paidOrders: "भुगतान किए गए ऑर्डर",
-bestSellingCrops: "सबसे ज्यादा बिकने वाली फसलें",
-quantitySold: "बेची गई मात्रा",
-noSalesData: "पिछले 6 महीनों में कोई भुगतान वाली बिक्री दर्ज नहीं हुई।",
-noCropSales: "अभी फसल बिक्री का डेटा उपलब्ध नहीं है।",
-lastSixMonths: "पिछले 6 महीने",
-kgSold: "किलो बिका",
+    analyticsDesc: "अपनी कमाई और सबसे ज्यादा बिकने वाली फसलें देखें।",
+    monthlyEarnings: "बिक्री की कमाई",
+    paidOrders: "भुगतान किए गए ऑर्डर",
+    deliveredOrders: "डिलीवर किए गए ऑर्डर",
+    bestSellingCrops: "सबसे ज्यादा बिकने वाली फसलें",
+    quantitySold: "बेची गई मात्रा",
+    noSalesData: "इस अवधि में कोई डिलीवर की गई बिक्री दर्ज नहीं हुई।",
+    noCropSales: "अभी फसल बिक्री का डेटा उपलब्ध नहीं है।",
+    lastSixMonths: "पिछले 6 महीने",
+    today: "आज",
+    thisWeek: "इस सप्ताह",
+    thisMonth: "इस महीने",
+    kgSold: "किलो बिका",
+    filterSales: "बिक्री फ़िल्टर करें",
+    downloadReport: "बिक्री रिपोर्ट डाउनलोड करें",
+    downloadDescription: "चुनी गई अवधि के डिलीवर किए गए ऑर्डर डाउनलोड करें।",
+    totalSales: "कुल बिक्री",
+    totalStock: "कुल उपलब्ध स्टॉक",
+    weatherRetry: "मौसम फिर से लोड करें"
   },
 
   "kn-IN": {
@@ -252,10 +251,8 @@ kgSold: "किलो बिका",
     refresh: "ರಿಫ್ರೆಶ್",
     lowStock: "ಕಡಿಮೆ ಸ್ಟಾಕ್",
     noLowStock: "ಎಲ್ಲಾ ಬೆಳೆಗಳಲ್ಲಿ 10 ಕೆಜಿಗಿಂತ ಹೆಚ್ಚು ಸ್ಟಾಕ್ ಇದೆ.",
-    noOrders: "ಇನ್ನೂ ಯಾವುದೇ ಆರ್ಡರ್‌ಗಳಿಲ್ಲ. ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.",
-    noCrops: "ಇನ್ನೂ ಯಾವುದೇ ಬೆಳೆಗಳನ್ನು ಪಟ್ಟಿ ಮಾಡಿಲ್ಲ.",
+    noOrders: "ಇನ್ನೂ ಯಾವುದೇ ಆರ್ಡರ್‌ಗಳಿಲ್ಲ.",
     sales: "ನಿಮ್ಮ ಕೃಷಿ ವಿವರಗಳು",
-    chart: "ಆರ್ಡರ್‌ಗಳು ಬಂದಂತೆ ಮಾರಾಟದ ವಿವರ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.",
     quantity: "ಪ್ರಮಾಣ",
     status: "ಸ್ಥಿತಿ",
     payment: "ಪಾವತಿ",
@@ -267,8 +264,7 @@ kgSold: "किलो बिका",
     dashboardError: "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ಡೇಟಾ ಅಪ್‌ಡೇಟ್ ಆಗಲಿಲ್ಲ.",
     tagline1: "ಬುದ್ಧಿವಂತಿಕೆಯಿಂದ ಕೃಷಿ ಮಾಡಿ.",
     tagline2: "ಉತ್ತಮವಾಗಿ ಮಾರಾಟ ಮಾಡಿ.",
-    farmDescription:
-      "ನಿಮ್ಮ ಬೆಳೆಗಳು, ಸ್ಟಾಕ್, ಆರ್ಡರ್‌ಗಳು ಮತ್ತು ದೃಢೀಕೃತ ಪಾವತಿಗಳನ್ನು ಒಂದೇ ಸ್ಥಳದಲ್ಲಿ ಪರಿಶೀಲಿಸಿ.",
+    farmDescription: "ನಿಮ್ಮ ಬೆಳೆಗಳು, ಸ್ಟಾಕ್, ಆರ್ಡರ್‌ಗಳು ಮತ್ತು ದೃಢೀಕೃತ ಪಾವತಿಗಳನ್ನು ಒಂದೇ ಸ್ಥಳದಲ್ಲಿ ಪರಿಶೀಲಿಸಿ.",
     language: "ಭಾಷೆ",
     liveInfo: "ನಿಮ್ಮ FarmConnect ಖಾತೆಯ ನೇರ ಮಾಹಿತಿ",
     autoRefresh: "ಸ್ವಯಂಚಾಲಿತವಾಗಿ ನವೀಕರಿಸಲಾಗುತ್ತಿದೆ",
@@ -287,8 +283,7 @@ kgSold: "किलो बिका",
     perKg: "ಪ್ರತಿ ಕೆಜಿ",
     previousDate: "ಹಿಂದಿನ ದಾಖಲಾದ ದಿನಾಂಕಕ್ಕೆ ಹೋಲಿಸಿದರೆ",
     farmingAtGlance: "ಕೃಷಿಯ ಒಂದು ನೋಟ",
-    farmingDescription:
-      "ಈ ಪುಟ ತೆರೆದಿರುವಾಗ ನಿಮ್ಮ ದಾಸ್ತಾನು ಮತ್ತು ಆರ್ಡರ್‌ಗಳು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ನವೀಕರಿಸುತ್ತವೆ.",
+    farmingDescription: "ಈ ಪುಟ ತೆರೆದಿರುವಾಗ ನಿಮ್ಮ ದಾಸ್ತಾನು ಮತ್ತು ಆರ್ಡರ್‌ಗಳು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ನವೀಕರಿಸುತ್ತವೆ.",
     listedVarieties: "ಪಟ್ಟಿ ಮಾಡಲಾದ ಬೆಳೆಗಳು",
     ordersReceived: "ಸ್ವೀಕರಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
     cropsAttention: "ಗಮನ ಅಗತ್ಯವಿರುವ ಬೆಳೆಗಳು",
@@ -302,7 +297,7 @@ kgSold: "किलो बिका",
     speechUnsupported: "ಈ ಬ್ರೌಸರ್ ಧ್ವನಿ ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ಬೆಂಬಲಿಸುವುದಿಲ್ಲ.",
     assistantSpeaking: "ಸಹಾಯಕ ಮಾತನಾಡುತ್ತಿದ್ದಾನೆ...",
     responseCompleted: "ಪ್ರತಿಕ್ರಿಯೆ ಪೂರ್ಣಗೊಂಡಿದೆ.",
-    speechError: "ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ಪ್ಲೇ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    speechError: "ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ಪ್ಲೇ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
     startError: "ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆಯನ್ನು ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
     commandNotRecognized: "ಆಜ್ಞೆಯನ್ನು ಗುರುತಿಸಲಾಗಲಿಲ್ಲ",
     dashboard: "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
@@ -310,10 +305,9 @@ kgSold: "किलो बिका",
     cropOrder: "ಬೆಳೆ ಆರ್ಡರ್",
     pending: "ಬಾಕಿ ಇದೆ",
     priceChartTitle: "ಬೆಲೆ ಇತಿಹಾಸ (₹/ಕೆಜಿ)",
-    priceDisclaimer:
-      "ಬೆಲೆಗಳನ್ನು FarmConnect-AI ಆರ್ಡರ್ ದಾಖಲೆಗಳಿಂದ ಅಂದಾಜಿಸಲಾಗಿದೆ; ಇವು ಅಧಿಕೃತ ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಳಲ್ಲ. ಈ ಚಾರ್ಟ್ ಹಿಂದಿನ ಬೆಲೆಗಳನ್ನು ಮಾತ್ರ ತೋರಿಸುತ್ತದೆ ಮತ್ತು ಭವಿಷ್ಯದ ಬೆಲೆಗಳ ಖಾತರಿ ನೀಡುವುದಿಲ್ಲ.",
+    priceDisclaimer: "ಬೆಲೆಗಳನ್ನು FarmConnect-AI ಆರ್ಡರ್ ದಾಖಲೆಗಳಿಂದ ಅಂದಾಜಿಸಲಾಗಿದೆ; ಇವು ಅಧಿಕೃತ ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಳಲ್ಲ.",
     loginAgain: "ಬಳಕೆದಾರರ ಇಮೇಲ್ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಲಾಗಿನ್ ಮಾಡಿ.",
-    priceLoadError: "ಬೆಳೆ ಬೆಲೆ ಇತಿಹಾಸವನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    priceLoadError: "ಬೆಳೆ ಬೆಲೆ ಇತಿಹಾಸವನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
     crop: "ಬೆಳೆ",
     tomato: "ಟೊಮೇಟೊ",
     potato: "ಆಲೂಗಡ್ಡೆ",
@@ -323,16 +317,26 @@ kgSold: "किलो बिका",
     commandHelp: "ಬೆಳೆ ಸೇರಿಸಿ, ನನ್ನ ಬೆಳೆಗಳು, ಹವಾಮಾನ, ನನ್ನ ಆರ್ಡರ್‌ಗಳು, ಡ್ಯಾಶ್‌ಬೋರ್ಡ್, ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್, ಒಟ್ಟು ಆದಾಯ ಅಥವಾ ಕಡಿಮೆ ಸ್ಟಾಕ್ ಎಂದು ಹೇಳಿ.",
     locationLoading: "ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
     analyticsTitle: "ಮಾರಾಟ ವಿಶ್ಲೇಷಣೆ",
-analyticsDesc: "ನಿಮ್ಮ ಮಾಸಿಕ ಆದಾಯ ಮತ್ತು ಹೆಚ್ಚು ಮಾರಾಟವಾದ ಬೆಳೆಗಳನ್ನು ನೋಡಿ.",
-monthlyEarnings: "ಮಾಸಿಕ ಆದಾಯ",
-paidOrders: "ಪಾವತಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
-bestSellingCrops: "ಹೆಚ್ಚು ಮಾರಾಟವಾದ ಬೆಳೆಗಳು",
-quantitySold: "ಮಾರಾಟವಾದ ಪ್ರಮಾಣ",
-noSalesData: "ಕಳೆದ 6 ತಿಂಗಳಲ್ಲಿ ಪಾವತಿಸಿದ ಮಾರಾಟ ದಾಖಲಾಗಿಲ್ಲ.",
-noCropSales: "ಇನ್ನೂ ಬೆಳೆ ಮಾರಾಟದ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ.",
-lastSixMonths: "ಕಳೆದ 6 ತಿಂಗಳುಗಳು",
-kgSold: "ಕೆಜಿ ಮಾರಾಟ",
-  },
+    analyticsDesc: "ನಿಮ್ಮ ಮಾಸಿಕ ಆದಾಯ ಮತ್ತು ಹೆಚ್ಚು ಮಾರಾಟವಾದ ಬೆಳೆಗಳನ್ನು ನೋಡಿ.",
+    monthlyEarnings: "ಮಾರಾಟದ ಆದಾಯ",
+    paidOrders: "ಪಾವತಿಸಿದ ಆರ್ಡರ್‌ಗಳು",
+    deliveredOrders: "ವಿತರಿಸಲಾದ ಆರ್ಡರ್‌ಗಳು",
+    bestSellingCrops: "ಹೆಚ್ಚು ಮಾರಾಟವಾದ ಬೆಳೆಗಳು",
+    quantitySold: "ಮಾರಾಟವಾದ ಪ್ರಮಾಣ",
+    noSalesData: "ಈ ಅವಧಿಯಲ್ಲಿ ವಿತರಿಸಲಾದ ಮಾರಾಟ ದಾಖಲಾಗಿಲ್ಲ.",
+    noCropSales: "ಇನ್ನೂ ಬೆಳೆ ಮಾರಾಟದ ಮಾಹಿತಿ ಲಭ್ಯವಿಲ್ಲ.",
+    lastSixMonths: "ಕಳೆದ 6 ತಿಂಗಳುಗಳು",
+    today: "ಇಂದು",
+    thisWeek: "ಈ ವಾರ",
+    thisMonth: "ಈ ತಿಂಗಳು",
+    kgSold: "ಕೆಜಿ ಮಾರಾಟ",
+    filterSales: "ಮಾರಾಟವನ್ನು ಫಿಲ್ಟರ್ ಮಾಡಿ",
+    downloadReport: "ಮಾರಾಟ ವರದಿ ಡೌನ್‌ಲೋಡ್",
+    downloadDescription: "ಆಯ್ಕೆ ಮಾಡಿದ ಅವಧಿಯ ವಿತರಿಸಲಾದ ಆರ್ಡರ್‌ಗಳನ್ನು ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ.",
+    totalSales: "ಒಟ್ಟು ಮಾರಾಟ",
+    totalStock: "ಒಟ್ಟು ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್",
+    weatherRetry: "ಹವಾಮಾನ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ"
+  }
 };
 
 const responses = {
@@ -348,7 +352,7 @@ const responses = {
     micError: "Voice recognition is not supported. Please use Google Chrome.",
     micDenied: "Microphone permission was denied.",
     noSpeech: "I could not hear anything. Please try again.",
-    network: "Network problem. Please check your internet connection.",
+    network: "Network problem. Please check your internet connection."
   },
   "hi-IN": {
     greeting: "नमस्ते! मैं आपका FarmConnect सहायक हूँ। मैं आपकी कैसे मदद कर सकता हूँ?",
@@ -362,7 +366,7 @@ const responses = {
     micError: "कृपया आवाज़ पहचानने के लिए Google Chrome का उपयोग करें।",
     micDenied: "माइक्रोफ़ोन की अनुमति नहीं मिली।",
     noSpeech: "आपकी आवाज़ सुनाई नहीं दी। फिर से कोशिश करें।",
-    network: "नेटवर्क समस्या है। इंटरनेट कनेक्शन जाँचें।",
+    network: "नेटवर्क समस्या है। इंटरनेट कनेक्शन जाँचें।"
   },
   "kn-IN": {
     greeting: "ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ FarmConnect ಸಹಾಯಕ. ನಾನು ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?",
@@ -376,8 +380,8 @@ const responses = {
     micError: "ಧ್ವನಿ ಗುರುತಿಸಲು Google Chrome ಬಳಸಿ.",
     micDenied: "ಮೈಕ್ರೋಫೋನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ.",
     noSpeech: "ನಿಮ್ಮ ಧ್ವನಿ ಕೇಳಿಸಲಿಲ್ಲ. ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.",
-    network: "ನೆಟ್‌ವರ್ಕ್ ಸಮಸ್ಯೆ ಇದೆ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ.",
-  },
+    network: "ನೆಟ್‌ವರ್ಕ್ ಸಮಸ್ಯೆ ಇದೆ. ಇಂಟರ್ನೆಟ್ ಪರಿಶೀಲಿಸಿ."
+  }
 };
 
 function FarmerDashboard() {
@@ -410,6 +414,12 @@ function FarmerDashboard() {
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceError, setPriceError] = useState("");
 
+  const [selectedSalesRange, setSelectedSalesRange] = useState("6months");
+  const [salesAnalytics, setSalesAnalytics] = useState(null);
+const [analyticsLoading, setAnalyticsLoading] = useState(false);
+const [analyticsError, setAnalyticsError] = useState("");
+
+  // Load weather using the farmer's current location.
   const loadWeather = useCallback(() => {
     if (!navigator.geolocation) {
       setWeatherError(ui.weatherUnsupported);
@@ -425,8 +435,9 @@ function FarmerDashboard() {
         try {
           const { latitude, longitude } = position.coords;
           const response = await api.get("/weather", {
-            params: { lat: latitude, lon: longitude },
+            params: { lat: latitude, lon: longitude }
           });
+
           setWeather(response.data);
           setWeatherError("");
         } catch (error) {
@@ -438,31 +449,34 @@ function FarmerDashboard() {
       },
       (error) => {
         console.error("Location error:", error);
-        setWeatherError(ui.weatherPermission);
+        setWeatherError(
+          error.code === 1 ? ui.weatherPermission : ui.weatherLoadError
+        );
         setWeatherLoading(false);
       },
-      {
-        enableHighAccuracy: false,
-        timeout: 10000,
-        maximumAge: 300000,
-      }
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
     );
   }, [ui.weatherUnsupported, ui.weatherLoadError, ui.weatherPermission]);
 
+  // Load crop price history.
   const loadPriceHistory = useCallback(async () => {
     setPriceLoading(true);
     setPriceError("");
 
     try {
       const response = await api.get("/crop-price-trends", {
-        params: { crop: selectedPriceCrop },
+        params: { crop: selectedPriceCrop }
       });
 
       const history = Array.isArray(response.data?.history)
         ? response.data.history
         : [];
 
-      setPriceHistory(history);
+      const sortedHistory = [...history].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      setPriceHistory(sortedHistory);
     } catch (error) {
       console.error("Crop price history loading failed:", error);
       setPriceHistory([]);
@@ -472,6 +486,33 @@ function FarmerDashboard() {
     }
   }, [selectedPriceCrop, ui.priceLoadError]);
 
+  // Load farmer crops and orders.
+  const loadSalesAnalytics = useCallback(async () => {
+  const email = sessionStorage.getItem("userEmail");
+
+  if (!email) {
+    setSalesAnalytics(null);
+    setAnalyticsError(ui.loginAgain);
+    return;
+  }
+
+  setAnalyticsLoading(true);
+  setAnalyticsError("");
+
+  try {
+    const analyticsResponse = await api.get(
+      `/farmer-sales-analytics/${encodeURIComponent(email)}`
+    );
+
+    setSalesAnalytics(analyticsResponse.data);
+  } catch (analyticsErr) {
+    console.error("Sales analytics loading failed:", analyticsErr);
+    setSalesAnalytics(null);
+    setAnalyticsError("Unable to load sales analytics.");
+  } finally {
+    setAnalyticsLoading(false);
+  }
+}, [ui.loginAgain]);
   const loadDashboardData = useCallback(async () => {
     const email = sessionStorage.getItem("userEmail");
 
@@ -484,7 +525,7 @@ function FarmerDashboard() {
     try {
       const [cropsResponse, ordersResponse] = await Promise.all([
         api.get("/crops"),
-        api.get(`/farmer-orders/${encodeURIComponent(email)}`),
+        api.get(`/farmer-orders/${encodeURIComponent(email)}`)
       ]);
 
       const allCrops = Array.isArray(cropsResponse.data)
@@ -501,16 +542,21 @@ function FarmerDashboard() {
         : [];
 
       setDashboardCrops(myCrops);
-      setDashboardOrders(myOrders);
-      setDashboardError("");
+setDashboardOrders(myOrders);
+setDashboardError("");
+
+// Load sales analytics from the backend.
+// Load sales analytics separately.
+await loadSalesAnalytics();
     } catch (error) {
       console.error("Dashboard data loading failed:", error);
       setDashboardError(ui.dashboardError);
     } finally {
       setDashboardLoading(false);
     }
-  }, [ui.dashboardError, ui.loginAgain]);
+  },  [ui.dashboardError, ui.loginAgain, loadSalesAnalytics]);
 
+  // Component cleanup.
   useEffect(() => {
     mountedRef.current = true;
 
@@ -529,16 +575,19 @@ function FarmerDashboard() {
     };
   }, []);
 
+  // Weather refresh.
   useEffect(() => {
     loadWeather();
     const intervalId = setInterval(loadWeather, 15 * 60 * 1000);
     return () => clearInterval(intervalId);
   }, [loadWeather]);
 
+  // Price history refresh.
   useEffect(() => {
     loadPriceHistory();
   }, [loadPriceHistory]);
 
+  // Synchronize application language.
   useEffect(() => {
     const nextLanguage = languageMap[appLanguage] || "en-IN";
 
@@ -553,6 +602,7 @@ function FarmerDashboard() {
     }
   }, [appLanguage, language]);
 
+  // Dashboard refresh every 30 seconds.
   useEffect(() => {
     loadDashboardData();
 
@@ -560,7 +610,7 @@ function FarmerDashboard() {
       if (document.visibilityState === "visible") {
         loadDashboardData();
       }
-    }, 5000);
+    }, 30000);
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -576,12 +626,21 @@ function FarmerDashboard() {
     };
   }, [loadDashboardData]);
 
+  // Dashboard calculations.
   const totalCrops = dashboardCrops.length;
   const totalOrders = dashboardOrders.length;
 
-  const confirmedEarnings = dashboardOrders
-    .filter((order) => String(order.payment_status || "").toLowerCase() === "paid")
-    .reduce((sum, order) => sum + Number(order.total_price || 0), 0);
+  const confirmedEarnings = salesAnalytics
+  ? Number(salesAnalytics.total_revenue || 0)
+  : dashboardOrders
+      .filter(
+        (order) =>
+          String(order.status || "").toLowerCase() === "delivered"
+      )
+      .reduce(
+        (sum, order) => sum + Number(order.total_price || 0),
+        0
+      );
 
   const totalAvailableStock = dashboardCrops.reduce(
     (sum, crop) => sum + Number(crop.quantity || 0),
@@ -591,80 +650,161 @@ function FarmerDashboard() {
   const lowStockCrops = dashboardCrops.filter(
     (crop) => Number(crop.quantity || 0) <= 10
   );
-  // Only paid orders are counted as confirmed sales.
-const paidOrders = dashboardOrders.filter(
+
+   // Only successfully delivered orders count as sales.
+const deliveredOrders = dashboardOrders.filter(
   (order) =>
-    String(order.payment_status || "").toLowerCase() === "paid"
+    String(order.status || "").trim().toLowerCase() === "delivered"
 );
 
-// Prepare the last 6 months.
-const currentDate = new Date();
+  // Selected sales date range.
+  const currentDate = new Date();
 
-const monthlySales = Array.from({ length: 6 }, (_, index) => {
-  const monthDate = new Date(
+  const todayStart = new Date(
     currentDate.getFullYear(),
-    currentDate.getMonth() - 5 + index,
+    currentDate.getMonth(),
+    currentDate.getDate()
+  );
+
+  const { rangeStart, rangeEnd, rangeLabel } = useMemo(() => {
+    const start = new Date(todayStart);
+    let end = new Date(todayStart);
+    let label = ui.today;
+
+    if (selectedSalesRange === "week") {
+      const day = start.getDay();
+      const daysFromMonday = (day + 6) % 7;
+
+      start.setDate(start.getDate() - daysFromMonday);
+      end = new Date(start);
+      end.setDate(end.getDate() + 7);
+      label = ui.thisWeek;
+    } else if (selectedSalesRange === "month") {
+      start.setDate(1);
+      end = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        1
+      );
+      label = ui.thisMonth;
+    } else if (selectedSalesRange === "6months") {
+      start.setDate(1);
+      start.setMonth(start.getMonth() - 5);
+      end = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        1
+      );
+      label = ui.lastSixMonths;
+    } else {
+      end.setDate(end.getDate() + 1);
+    }
+
+    return { rangeStart: start, rangeEnd: end, rangeLabel: label };
+  }, [selectedSalesRange, ui.today, ui.thisWeek, ui.thisMonth, ui.lastSixMonths]);
+
+  // Filter delivered orders for the selected period.
+  // Filter delivered orders using the selected date range.
+const filteredDeliveredOrders = useMemo(() => {
+  return deliveredOrders.filter((order) => {
+    const orderDate = new Date(order.order_date || order.created_at);
+
+    return (
+      !Number.isNaN(orderDate.getTime()) &&
+      orderDate >= rangeStart &&
+      orderDate < rangeEnd
+    );
+  });
+}, [deliveredOrders, rangeStart, rangeEnd]);
+
+  // Monthly chart data.
+  const monthlySales = useMemo(() => {
+    if (selectedSalesRange === "6months") {
+      const months = Array.from({ length: 6 }, (_, index) => {
+        const monthDate = new Date(
+          currentDate.getFullYear(),
+          currentDate.getMonth() - 5 + index,
+          1
+        );
+
+        const monthKey = `${monthDate.getFullYear()}-${String(
+          monthDate.getMonth() + 1
+        ).padStart(2, "0")}`;
+
+        return {
+          key: monthKey,
+          label: monthDate.toLocaleDateString(language, { month: "short" }),
+          earnings: 0,
+          orders: 0
+        };
+      });
+
+      filteredDeliveredOrders.forEach((order) => {
+        const date = new Date(order.order_date || order.created_at)
+        if (Number.isNaN(date.getTime())) return;
+
+        const key = `${date.getFullYear()}-${String(
+          date.getMonth() + 1
+        ).padStart(2, "0")}`;
+
+        const month = months.find((item) => item.key === key);
+
+        if (month) {
+          month.earnings += Number(order.total_price || 0);
+          month.orders += 1;
+        }
+      });
+
+      return months;
+    }
+
+    return [{
+      key: selectedSalesRange,
+      label: rangeLabel,
+      earnings: filteredDeliveredOrders.reduce(
+        (sum, order) => sum + Number(order.total_price || 0),
+        0
+      ),
+      orders: filteredDeliveredOrders.length
+    }];
+  }, [selectedSalesRange, filteredDeliveredOrders, currentDate, language, rangeLabel]);
+
+  const highestMonthlyEarnings = Math.max(
+    ...monthlySales.map((month) => month.earnings),
     1
   );
 
-  const monthKey = `${monthDate.getFullYear()}-${String(
-    monthDate.getMonth() + 1
-  ).padStart(2, "0")}`;
+  // Best-selling crops.
+  const bestSellingCrops = useMemo(() => {
+    const cropSalesMap = {};
 
-  return {
-    key: monthKey,
-    label: monthDate.toLocaleDateString(language, { month: "short" }),
-    earnings: 0,
-    orders: 0,
-  };
-});
+    filteredDeliveredOrders.forEach((order) => {
+      const cropName = order.crop_name || "Other";
+      cropSalesMap[cropName] =
+        (cropSalesMap[cropName] || 0) + Number(order.quantity || 0);
+    });
 
-paidOrders.forEach((order) => {
-  const orderDate = new Date(order.created_at);
+    return Object.entries(cropSalesMap)
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5);
+  }, [filteredDeliveredOrders]);
 
-  if (Number.isNaN(orderDate.getTime())) return;
+  const highestCropQuantity = Math.max(
+    ...bestSellingCrops.map((crop) => crop.quantity),
+    1
+  );
 
-  const monthKey = `${orderDate.getFullYear()}-${String(
-    orderDate.getMonth() + 1
-  ).padStart(2, "0")}`;
+  const totalDeliveredOrders = filteredDeliveredOrders.length;
 
-  const month = monthlySales.find((item) => item.key === monthKey);
-
-  if (month) {
-    month.earnings += Number(order.total_price || 0);
-    month.orders += 1;
-  }
-});
-
-const highestMonthlyEarnings = Math.max(
-  ...monthlySales.map((month) => month.earnings),
-  1
+  const totalSelectedSales = filteredDeliveredOrders.reduce(
+    (sum, order) => sum + Number(order.total_price || 0),
+    0
+  );
+  const totalQuantitySold = filteredDeliveredOrders.reduce(
+  (sum, order) => sum + Number(order.quantity || 0),
+  0
 );
-
-// Calculate quantity sold for each crop.
-const cropSalesMap = {};
-
-paidOrders.forEach((order) => {
-  const cropName = order.crop_name || "Other";
-
-  if (!cropSalesMap[cropName]) {
-    cropSalesMap[cropName] = 0;
-  }
-
-  cropSalesMap[cropName] += Number(order.quantity || 0);
-});
-
-const bestSellingCrops = Object.entries(cropSalesMap)
-  .map(([name, quantity]) => ({ name, quantity }))
-  .sort((a, b) => b.quantity - a.quantity)
-  .slice(0, 5);
-
-const highestCropQuantity = Math.max(
-  ...bestSellingCrops.map((crop) => crop.quantity),
-  1
-);
-
-const totalPaidOrders = paidOrders.length;
 
   const recentOrders = [...dashboardOrders]
     .sort(
@@ -674,17 +814,23 @@ const totalPaidOrders = paidOrders.length;
     )
     .slice(0, 4);
 
+  const formatMoney = (value) =>
+    `₹${Number(value || 0).toLocaleString("en-IN", {
+      maximumFractionDigits: 2
+    })}`;
+
+  // Voice assistant.
   const getSpokenText = (message, englishFallback) => {
     if (language === "kn-IN") {
       return {
         text: englishFallback || "Your command has been processed.",
-        lang: "en-US",
+        lang: "en-US"
       };
     }
 
     return {
       text: message,
-      lang: language === "hi-IN" ? "hi-IN" : "en-US",
+      lang: language === "hi-IN" ? "hi-IN" : "en-US"
     };
   };
 
@@ -734,9 +880,7 @@ const totalPaidOrders = paidOrders.length;
   };
 
   const normalizeText = (value) =>
-    value
-      .toLowerCase()
-      .normalize("NFC")
+    value.toLowerCase().normalize("NFC")
       .replace(/[.,!?;:।]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -744,173 +888,112 @@ const totalPaidOrders = paidOrders.length;
   const handleVoiceCommand = (command) => {
     const text = normalizeText(command);
     setVoiceText(`${ui.recognizedAs} "${command}"`);
-       const stockDetails = dashboardCrops
-  .filter((crop) => Number(crop.quantity || 0) > 0)
-  .map(
-    (crop) =>
-      `${crop.crop_name}: ${Number(crop.quantity)} kilograms`
-  );
 
-const stockMessage =
-  stockDetails.length === 0
-    ? language === "hi-IN"
-      ? "अभी कोई उपलब्ध फसल स्टॉक नहीं है।"
+    const stockDetails = dashboardCrops
+      .filter((crop) => Number(crop.quantity || 0) > 0)
+      .map((crop) => `${crop.crop_name}: ${Number(crop.quantity)} kilograms`);
+
+    const stockMessage = language === "hi-IN"
+      ? `आपके पास कुल ${totalAvailableStock} किलो स्टॉक है।`
       : language === "kn-IN"
-      ? "ಪ್ರಸ್ತುತ ಯಾವುದೇ ಬೆಳೆ ಸ್ಟಾಕ್ ಲಭ್ಯವಿಲ್ಲ."
-      : "You currently have no available crop stock."
-    : language === "hi-IN"
-    ? `आपके पास कुल ${totalAvailableStock} किलो स्टॉक है। फसलों का विवरण: ${stockDetails.join("। ")}।`
-    : language === "kn-IN"
-    ? `ನಿಮ್ಮ ಬಳಿ ಒಟ್ಟು ${totalAvailableStock} ಕೆಜಿ ಸ್ಟಾಕ್ ಇದೆ. ಬೆಳೆಗಳ ವಿವರ: ${stockDetails.join(". ")}.`
-    : `You have a total of ${totalAvailableStock} kilograms of stock. Crop details: ${stockDetails.join(". ")}.`;
+      ? `ನಿಮ್ಮ ಬಳಿ ಒಟ್ಟು ${totalAvailableStock} ಕೆಜಿ ಸ್ಟಾಕ್ ಇದೆ.`
+      : `You have a total of ${totalAvailableStock} kilograms of stock. Crop details: ${stockDetails.join(". ")}.`;
 
-    const earningsMessage =
-      language === "hi-IN"
-        ? `आपकी कुल पुष्ट कमाई ${confirmedEarnings} रुपये है।`
-        : language === "kn-IN"
-        ? `ನಿಮ್ಮ ಒಟ್ಟು ದೃಢೀಕೃತ ಆದಾಯ ${confirmedEarnings} ರೂಪಾಯಿಗಳು.`
-        : `Your total confirmed earnings are ${confirmedEarnings} rupees.`;
+    const earningsMessage = language === "hi-IN"
+      ? `आपकी कुल पुष्ट कमाई ${confirmedEarnings} रुपये है।`
+      : language === "kn-IN"
+      ? `ನಿಮ್ಮ ಒಟ್ಟು ದೃಢೀಕೃತ ಆದಾಯ ${confirmedEarnings} ರೂಪಾಯಿಗಳು.`
+      : `Your total confirmed earnings are ${confirmedEarnings} rupees.`;
 
-    const lowStockMessage =
-      lowStockCrops.length === 0
-        ? language === "hi-IN"
-          ? "आपकी किसी भी फसल का स्टॉक कम नहीं है।"
-          : language === "kn-IN"
-          ? "ಯಾವುದೇ ಬೆಳೆಯಲ್ಲಿ ಕಡಿಮೆ ಸ್ಟಾಕ್ ಇಲ್ಲ."
-          : "None of your crops have low stock."
-        : language === "hi-IN"
-        ? `कम स्टॉक वाली फसलें हैं: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} किलो`).join(", ")}।`
+    const lowStockMessage = lowStockCrops.length === 0
+      ? language === "hi-IN"
+        ? "आपकी किसी भी फसल का स्टॉक कम नहीं है।"
         : language === "kn-IN"
-        ? `ಕಡಿಮೆ ಸ್ಟಾಕ್ ಇರುವ ಬೆಳೆಗಳು: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} ಕೆಜಿ`).join(", ")}.`
-        : `Your low stock crops are: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} kilograms`).join(", ")}.`;
+        ? "ಯಾವುದೇ ಬೆಳೆಯಲ್ಲಿ ಕಡಿಮೆ ಸ್ಟಾಕ್ ಇಲ್ಲ."
+        : "None of your crops have low stock."
+      : `Your low stock crops are: ${lowStockCrops.map(
+          (crop) => `${crop.crop_name}, ${crop.quantity} kilograms`
+        ).join(", ")}.`;
 
     const commands = [
-            {
-        words: [
-          "available stock",
-          "total stock",
-          "how much stock",
-          "check stock",
-          "stock available",
-          "उपलब्ध स्टॉक",
-          "कितना स्टॉक",
-          "ಸ್ಟಾಕ್ ಎಷ್ಟು",
-          "ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್",
-        ],
+      {
+        words: ["available stock", "total stock", "how much stock", "check stock",
+          "stock available", "उपलब्ध स्टॉक", "कितना स्टॉक", "ಸ್ಟಾಕ್ ಎಷ್ಟು",
+          "ಲಭ್ಯವಿರುವ ಸ್ಟಾಕ್"],
         response: stockMessage,
         fallback: `You have ${totalAvailableStock} kilograms of available crop stock.`,
         path: null,
-        label: ui.stock,
+        label: ui.stock
       },
       {
-        words: [
-          "total earnings",
-          "my earnings",
-          "confirmed earnings",
-          "how much money",
-          "total income",
-          "मेरी कमाई",
-          "कुल कमाई",
-          "कितने पैसे",
-          "ಒಟ್ಟು ಆದಾಯ",
-          "ನನ್ನ ಆದಾಯ",
-          "ಒಟ್ಟು ಹಣ",
-        ],
+        words: ["total earnings", "my earnings", "confirmed earnings",
+          "how much money", "total income", "मेरी कमाई", "कुल कमाई",
+          "कितने पैसे", "ಒಟ್ಟು ಆದಾಯ", "ನನ್ನ ಆದಾಯ"],
         response: earningsMessage,
         fallback: `Your total confirmed earnings are ${confirmedEarnings} rupees.`,
         path: null,
-        label: ui.earnings,
+        label: ui.earnings
       },
       {
-        words: [
-          "low stock",
-          "show low stock",
-          "which crops are low",
-          "crops needing attention",
-          "कम स्टॉक",
-          "कम फसल",
-          "कम स्टॉक वाली फसल",
-          "ಕಡಿಮೆ ಸ್ಟಾಕ್",
-          "ಕಡಿಮೆ ಬೆಳೆ",
-          "ಸ್ಟಾಕ್ ಕಡಿಮೆ",
-        ],
+        words: ["low stock", "show low stock", "which crops are low",
+          "crops needing attention", "कम स्टॉक", "कम फसल", "ಕಡಿಮೆ ಸ್ಟಾಕ್"],
         response: lowStockMessage,
-        fallback:
-          lowStockCrops.length === 0
-            ? "None of your crops have low stock."
-            : `Low stock crops: ${lowStockCrops.map(crop => `${crop.crop_name}, ${crop.quantity} kilograms`).join(", ")}.`,
+        fallback: "Check your dashboard for crops with low stock.",
         path: null,
-        label: ui.lowStock,
+        label: ui.lowStock
       },
       {
-        words: [
-          "add crop", "add a crop", "add new crop", "new crop",
+        words: ["add crop", "add a crop", "add new crop", "new crop",
           "create crop", "register crop", "post crop", "sell crop",
-          "फसल जोड़ो", "फसल जोड़ें", "नई फसल", "ಹೊಸ ಬೆಳೆ",
-          "ಬೆಳೆ ಸೇರಿಸು", "ಬೆಳೆ ಸೇರಿಸಿ",
-        ],
+          "फसल जोड़ें", "नई फसल", "ಹೊಸ ಬೆಳೆ", "ಬೆಳೆ ಸೇರಿಸಿ"],
         response: reply.addCrop,
         fallback: "Opening the Add Crop page.",
         path: "/add-crop",
-        label: ui.addCrop,
+        label: ui.addCrop
       },
       {
-        words: [
-          "show my crops", "my crops", "my crop", "show crops",
+        words: ["show my crops", "my crops", "my crop", "show crops",
           "view my crops", "see my crops", "list my crops", "crop list",
-          "मेरी फसल", "फसल दिखाओ", "ನನ್ನ ಬೆಳೆ",
-          "ನನ್ನ ಬೆಳೆಗಳನ್ನು ತೋರಿಸು", "ಬೆಳೆ ತೋರಿಸು",
-        ],
+          "मेरी फसल", "फसल दिखाओ", "ನನ್ನ ಬೆಳೆ"],
         response: reply.myCrops,
         fallback: "Opening your crops page.",
         path: "/my-crops",
-        label: ui.myCrops,
+        label: ui.myCrops
       },
       {
-        words: [
-          "weather", "show weather", "check weather", "weather today",
-          "today weather", "what is the weather", "temperature",
-          "forecast", "rain", "मौसम", "आज का मौसम", "मौसम दिखाओ",
-          "ಹವಾಮಾನ", "ಇಂದಿನ ಹವಾಮಾನ", "ಮಳೆ",
-        ],
+        words: ["weather", "show weather", "check weather", "weather today",
+          "temperature", "forecast", "rain", "मौसम", "आज का मौसम",
+          "ಹವಾಮಾನ", "ಮಳೆ"],
         response: reply.weather,
         fallback: "Opening the weather page.",
         path: "/weather",
-        label: ui.weather,
+        label: ui.weather
       },
       {
-        words: [
-          "show my orders", "my orders", "show orders", "view orders",
-          "view my orders", "check orders", "pending orders", "orders",
-          "order", "मेरे ऑर्डर", "ऑर्डर दिखाओ", "ನನ್ನ ಆರ್ಡರ್",
-          "ನನ್ನ ಆರ್ಡರ್‌ಗಳು", "ಆರ್ಡರ್ ತೋರಿಸು",
-        ],
+        words: ["show my orders", "my orders", "show orders", "view orders",
+          "check orders", "pending orders", "orders", "order",
+          "मेरे ऑर्डर", "ऑर्डर दिखाओ", "ನನ್ನ ಆರ್ಡರ್‌ಗಳು"],
         response: reply.orders,
         fallback: "Opening your orders page.",
         path: "/orders",
-        label: ui.orders,
+        label: ui.orders
       },
       {
-        words: [
-          "open dashboard", "go to dashboard", "main dashboard",
-          "dashboard", "go home", "home", "main page",
-          "डैशबोर्ड", "होम", "ಮುಖ್ಯ ಪುಟ", "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್", "ಹೋಮ್",
-        ],
+        words: ["open dashboard", "go to dashboard", "main dashboard",
+          "dashboard", "go home", "home", "डैशबोर्ड", "ಹೋಮ್"],
         response: reply.dashboard,
         fallback: "You are on your farmer dashboard.",
         path: "/farmer-dashboard",
-        label: ui.dashboard,
+        label: ui.dashboard
       },
       {
-        words: [
-          "help", "commands", "what can you do", "what can i say",
-          "मदद", "सहायता", "ಸಹಾಯ",
-        ],
+        words: ["help", "commands", "what can you do", "what can i say",
+          "मदद", "सहायता", "ಸಹಾಯ"],
         response: reply.help,
         fallback: ui.commandHelp,
         path: null,
-        label: ui.help,
-      },
+        label: ui.help
+      }
     ];
 
     const matchedCommand = commands.find((item) =>
@@ -937,6 +1020,7 @@ const stockMessage =
     setVoiceText(
       `${ui.recognizedAs} "${command}" — ${ui.commandNotRecognized}`
     );
+
     speak(reply.unknown, null, "Sorry, I did not understand that command.");
   };
 
@@ -951,11 +1035,7 @@ const stockMessage =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      speak(
-        reply.micError,
-        null,
-        "Voice recognition is not supported. Please use Google Chrome."
-      );
+      speak(reply.micError);
       return;
     }
 
@@ -1010,7 +1090,7 @@ const stockMessage =
     const contextLanguageMap = {
       "en-IN": "en",
       "hi-IN": "hi",
-      "kn-IN": "kn",
+      "kn-IN": "kn"
     };
 
     setAppLanguage(contextLanguageMap[newLanguage] || "en");
@@ -1062,8 +1142,54 @@ const stockMessage =
     window.speechSynthesis.speak(utterance);
   };
 
-  const formatMoney = (value) =>
-    `₹${Number(value || 0).toLocaleString("en-IN")}`;
+  // Download only delivered orders from the selected date range.
+  const downloadSalesReport = () => {
+    if (filteredDeliveredOrders.length === 0) return;
+
+    const headers = [
+      "Order ID",
+      "Crop Name",
+      "Order Date",
+      "Quantity (kg)",
+      "Total Amount (INR)",
+      "Order Status",
+      "Payment Status"
+    ];
+
+    const rows = filteredDeliveredOrders.map((order) => [
+      order.id ?? "",
+      order.crop_name || "Other",
+      order.order_date  || order.created_at || "",
+      order.quantity ?? 0,
+      order.total_price ?? 0,
+      order.status || "",
+      order.payment_status || ""
+    ]);
+
+    const escapeCSV = (value) =>
+      `"${String(value).replace(/"/g, '""')}"`;
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map(escapeCSV).join(","))
+      .join("\r\n");
+
+    const blob = new Blob(
+      ["\uFEFF" + csvContent],
+      { type: "text/csv;charset=utf-8;" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `FarmConnect_Sales_Report_${selectedSalesRange}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   const statusColor = (status) => {
     switch (String(status || "").toLowerCase()) {
@@ -1084,8 +1210,9 @@ const stockMessage =
     <div className="min-h-screen bg-[#f4f7f0]">
       <Sidebar />
 
-      <main className="ml-72 min-h-screen">
-        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-green-100 bg-white/95 px-8 py-5 shadow-sm backdrop-blur">
+      <main className="ml-0 min-h-screen lg:ml-72">
+        {/* HEADER */}
+        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-green-100 bg-white/95 px-5 py-5 shadow-sm backdrop-blur md:px-8">
           <div>
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald-700">
               FARMCONNECT AI
@@ -1096,7 +1223,7 @@ const stockMessage =
             <p className="mt-1 text-gray-500">{ui.subtitle}</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-amber-700">
               <Sun size={20} />
               <span className="font-semibold">
@@ -1129,14 +1256,11 @@ const stockMessage =
           </div>
         </header>
 
-        <div className="space-y-8 p-6 md:p-8">
+        <div className="space-y-8 p-4 md:p-8">
           {dashboardError && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
               <span>{dashboardError}</span>
-              <button
-                onClick={loadDashboardData}
-                className="font-semibold underline"
-              >
+              <button onClick={loadDashboardData} className="font-semibold underline">
                 {ui.retry}
               </button>
             </div>
@@ -1145,17 +1269,15 @@ const stockMessage =
           {weatherError && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
               <span>{weatherError}</span>
-              <button
-                onClick={loadWeather}
-                className="font-semibold underline"
-              >
+              <button onClick={loadWeather} className="font-semibold underline">
                 {ui.retry}
               </button>
             </div>
           )}
 
-          <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-green-950 via-green-800 to-emerald-600 p-7 text-white shadow-xl md:p-9">
-            <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
+          {/* HERO AND VOICE ASSISTANT */}
+          <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-green-950 via-green-800 to-emerald-600 p-6 text-white shadow-xl md:p-9">
+            <div className="flex flex-col justify-between gap-7 xl:flex-row xl:items-center">
               <div className="max-w-2xl">
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm">
                   <Sprout size={17} />
@@ -1188,9 +1310,7 @@ const stockMessage =
                   </div>
                   <div>
                     <h3 className="text-xl font-bold">{ui.assistant}</h3>
-                    <p className="text-sm text-green-100">
-                      {ui.assistantDesc}
-                    </p>
+                    <p className="text-sm text-green-100">{ui.assistantDesc}</p>
                   </div>
                 </div>
 
@@ -1242,19 +1362,21 @@ const stockMessage =
                   </button>
                 </div>
 
-                <p className="mt-3 text-xs text-green-100">
-  {ui.trySaying} {ui.addCrop} · {ui.myCrops} · {ui.weather} · {ui.orders} · {ui.stock} · {ui.earnings} · {ui.lowStock} · {ui.help}
-</p>  
+                <p className="mt-3 text-xs leading-5 text-green-100">
+                  {ui.trySaying} {ui.addCrop} · {ui.myCrops} · {ui.weather} · {ui.orders} · {ui.stock} · {ui.earnings} · {ui.lowStock} · {ui.help}
+                </p>
               </div>
             </div>
           </section>
 
+          {/* DASHBOARD SUMMARY */}
           <section>
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">{ui.sales}</h2>
                 <p className="mt-1 text-gray-500">{ui.liveInfo}</p>
               </div>
+
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
                 {ui.autoRefresh}
@@ -1333,6 +1455,7 @@ const stockMessage =
             </div>
           </section>
 
+          {/* LOW STOCK AND RECENT ORDERS */}
           <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div className="rounded-2xl border border-amber-100 bg-white p-6 shadow-sm md:p-7">
               <div className="flex items-start justify-between gap-4">
@@ -1357,9 +1480,9 @@ const stockMessage =
                 </div>
               ) : (
                 <div className="mt-5 space-y-3">
-                  {lowStockCrops.slice(0, 5).map((crop) => (
+                  {lowStockCrops.slice(0, 5).map((crop, index) => (
                     <div
-                      key={crop.id}
+                      key={crop.id ?? index}
                       className="flex items-center justify-between gap-4 rounded-xl border border-amber-100 bg-amber-50/70 p-4"
                     >
                       <div>
@@ -1423,23 +1546,18 @@ const stockMessage =
                             {formatMoney(order.total_price)}
                           </p>
                         </div>
-
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor(order.status)}`}
-                        >
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor(order.status)}`}>
                           {order.status || ui.pending}
                         </span>
                       </div>
 
                       <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-sm">
                         <span className="text-gray-500">{ui.payment}</span>
-                        <span
-                          className={`font-semibold ${
-                            String(order.payment_status || "").toLowerCase() === "paid"
-                              ? "text-emerald-700"
-                              : "text-amber-700"
-                          }`}
-                        >
+                        <span className={`font-semibold ${
+                          String(order.payment_status || "").toLowerCase() === "paid"
+                            ? "text-emerald-700"
+                            : "text-amber-700"
+                        }`}>
                           {order.payment_status || ui.pending}
                         </span>
                       </div>
@@ -1456,135 +1574,196 @@ const stockMessage =
               </button>
             </div>
           </section>
+
           {/* SALES ANALYTICS */}
-<section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
-  <div className="flex items-center gap-3">
-    <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
-      <TrendingUp size={25} />
-    </div>
-    <div>
-      <h2 className="text-xl font-bold text-gray-900">
-        {ui.analyticsTitle}
-      </h2>
-      <p className="mt-1 text-sm text-gray-500">
-        {ui.analyticsDesc}
-      </p>
-    </div>
+          <section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">
+                <TrendingUp size={25} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {ui.analyticsTitle}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {ui.analyticsDesc}
+                </p>
+              </div>
+            </div>
+                        {analyticsLoading && (
+              <div className="mt-5 rounded-xl bg-blue-50 p-5 text-center text-blue-700">
+                {ui.loading} Sales Analytics...
+              </div>
+            )}
+
+            {!analyticsLoading && analyticsError && (
+  <div
+    role="alert"
+    className="mt-5 rounded-xl border border-red-200 bg-red-50 p-5 text-red-700"
+  >
+    <p className="font-semibold">
+      Unable to load Sales Analytics
+    </p>
+
+    <p className="mt-1 text-sm">{analyticsError}</p>
+
+    <button
+      type="button"
+      onClick={loadSalesAnalytics}
+      className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+    >
+      Retry
+    </button>
   </div>
+)}
 
-  <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-    <div className="rounded-xl bg-emerald-50 p-5">
-      <p className="text-sm font-medium text-emerald-800">
-        {ui.monthlyEarnings}
-      </p>
-      <p className="mt-2 text-2xl font-bold text-emerald-950">
-        {formatMoney(
-          monthlySales.reduce((sum, month) => sum + month.earnings, 0)
-        )}
-      </p>
-      <p className="mt-1 text-xs text-emerald-700">
-        {ui.lastSixMonths}
-      </p>
-    </div>
-
-    <div className="rounded-xl bg-blue-50 p-5">
-      <p className="text-sm font-medium text-blue-800">
-        {ui.paidOrders}
-      </p>
-      <p className="mt-2 text-2xl font-bold text-blue-950">
-        {totalPaidOrders}
-      </p>
-      <p className="mt-1 text-xs text-blue-700">
-        {ui.lastSixMonths}
-      </p>
-    </div>
-  </div>
-
-  <div className="mt-7">
-    <h3 className="font-bold text-gray-900">
-      {ui.monthlyEarnings}
-    </h3>
-
-    {totalPaidOrders === 0 ? (
-      <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
-        {ui.noSalesData}
-      </p>
-    ) : (
-      <div className="mt-5 flex h-64 items-end justify-around gap-3 border-b border-gray-200 px-2">
-        {monthlySales.map((month) => (
-          <div
-            key={month.key}
-            className="flex h-full flex-1 flex-col items-center justify-end gap-2"
-          >
-            <span className="text-center text-xs font-semibold text-gray-700">
-              {formatMoney(month.earnings)}
-            </span>
-
-            <div className="flex h-40 w-full items-end justify-center">
-              <div
-                className="w-full max-w-12 rounded-t-lg bg-emerald-600 transition-all"
-                style={{
-                  height: `${
-                    month.earnings > 0
-                      ? Math.max(
-                          (month.earnings / highestMonthlyEarnings) * 100,
-                          4
-                        )
-                      : 0
-                  }%`,
-                }}
-                title={`${month.label}: ${formatMoney(month.earnings)}`}
-              />
+            <div className="mt-5">
+              <label className="mb-2 block text-sm font-medium text-gray-600">
+                {ui.filterSales}
+              </label>
+              <select
+                value={selectedSalesRange}
+                onChange={(e) => setSelectedSalesRange(e.target.value)}
+                className="w-full max-w-xs rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-600"
+              >
+                <option value="today">{ui.today}</option>
+                <option value="week">{ui.thisWeek}</option>
+                <option value="month">{ui.thisMonth}</option>
+                <option value="6months">{ui.lastSixMonths}</option>
+              </select>
             </div>
 
-            <span className="text-xs font-medium text-gray-500">
-              {month.label}
-            </span>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-
-  <div className="mt-8">
-    <h3 className="font-bold text-gray-900">
-      {ui.bestSellingCrops}
-    </h3>
-
-    {bestSellingCrops.length === 0 ? (
-      <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
-        {ui.noCropSales}
-      </p>
-    ) : (
-      <div className="mt-4 space-y-4">
-        {bestSellingCrops.map((crop, index) => (
-          <div key={crop.name}>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="font-semibold text-gray-800">
-                {index + 1}. {crop.name}
-              </span>
-              <span className="text-sm font-semibold text-emerald-700">
-                {crop.quantity} {ui.kgSold}
-              </span>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-gray-500">
+                {ui.downloadDescription}
+              </p>
+              <button
+                type="button"
+                onClick={downloadSalesReport}
+                disabled={filteredDeliveredOrders.length === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download size={18} />
+                {ui.downloadReport}
+              </button>
             </div>
 
-            <div className="h-3 overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-emerald-600"
-                style={{
-                  width: `${
-                    (crop.quantity / highestCropQuantity) * 100
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-</section>
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-xl bg-emerald-50 p-5">
+                <p className="text-sm font-medium text-emerald-800">
+                  {ui.monthlyEarnings}
+                </p>
+                <p className="mt-2 text-2xl font-bold text-emerald-950">
+                  {formatMoney(totalSelectedSales)}
+                </p>
+                <p className="mt-1 text-xs text-emerald-700">{rangeLabel}</p>
+              </div>
 
+              <div className="rounded-xl bg-blue-50 p-5">
+                <p className="text-sm font-medium text-blue-800">
+                  {ui.deliveredOrders}
+                </p>
+                <p className="mt-2 text-2xl font-bold text-blue-950">
+                  {totalDeliveredOrders}
+                </p>
+                <p className="mt-1 text-xs text-blue-700">{rangeLabel}</p>
+              </div>
+
+              <div className="rounded-xl bg-amber-50 p-5">
+                
+                <p className="text-sm text-gray-500">{ui.quantitySold}</p>
+<p className="text-2xl font-bold text-gray-900">
+  {totalQuantitySold} kg
+</p>
+                <p className="mt-1 text-xs text-amber-700">{rangeLabel}</p>
+              </div>
+            </div>
+
+            {/* EARNINGS CHART */}
+            <div className="mt-7">
+              <h3 className="font-bold text-gray-900">{ui.monthlyEarnings}</h3>
+
+              {dashboardLoading ? (
+                <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
+                  {ui.loading}
+                </p>
+              ) : totalDeliveredOrders === 0 ? (
+                <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
+                  {ui.noSalesData}
+                </p>
+              ) : (
+                <div className="mt-5 flex h-64 items-end justify-around gap-3 border-b border-gray-200 px-2">
+                  {monthlySales.map((month) => (
+                    <div
+                      key={month.key}
+                      className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
+                    >
+                      <span className="max-w-full truncate text-center text-xs font-semibold text-gray-700">
+                        {formatMoney(month.earnings)}
+                      </span>
+                      <div className="flex h-40 w-full items-end justify-center">
+                        <div
+                          className="w-full max-w-12 rounded-t-lg bg-emerald-600 transition-all"
+                          style={{
+                            height: month.earnings > 0
+                              ? `${Math.max(
+                                  (month.earnings / highestMonthlyEarnings) * 100,
+                                  4
+                                )}%`
+                              : "0%"
+                          }}
+                          title={`${month.label}: ${formatMoney(month.earnings)}`}
+                        />
+                      </div>
+                      <span className="text-xs font-medium text-gray-500">
+                        {month.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* BEST-SELLING CROPS */}
+            <div className="mt-8">
+              <h3 className="font-bold text-gray-900">{ui.bestSellingCrops}</h3>
+
+              {dashboardLoading ? (
+                <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
+                  {ui.loading}
+                </p>
+              ) : bestSellingCrops.length === 0 ? (
+                <p className="mt-4 rounded-xl bg-gray-50 p-5 text-center text-gray-500">
+                  {ui.noCropSales}
+                </p>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {bestSellingCrops.map((crop, index) => (
+                    <div key={crop.name}>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="font-semibold text-gray-800">
+                          {index + 1}. {crop.name}
+                        </span>
+                        <span className="text-sm font-semibold text-emerald-700">
+                          {crop.quantity} {ui.kgSold}
+                        </span>
+                      </div>
+                      <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className="h-full rounded-full bg-emerald-600"
+                          style={{
+                            width: `${(crop.quantity / highestCropQuantity) * 100}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* CROP PRICE TREND ANALYSIS */}
           <section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
@@ -1654,8 +1833,8 @@ const stockMessage =
                             priceHistory[priceHistory.length - 1].average_price -
                             priceHistory[priceHistory.length - 2].average_price
                           ) > 0 ? "+" : ""}₹${(
-                            priceHistory[priceHistory.length - 1].average_price -
-                            priceHistory[priceHistory.length - 2].average_price
+                            Number(priceHistory[priceHistory.length - 1].average_price) -
+                            Number(priceHistory[priceHistory.length - 2].average_price)
                           ).toFixed(2)}`
                         : "—"}
                     </p>
@@ -1668,24 +1847,24 @@ const stockMessage =
                   const height = 260;
                   const padding = { top: 25, right: 25, bottom: 45, left: 55 };
 
-                  const values = priceHistory.map((item) => Number(item.average_price));
+                  const values = priceHistory.map((item) =>
+                    Number(item.average_price)
+                  );
+
                   const minPrice = Math.min(...values);
                   const maxPrice = Math.max(...values);
                   const range = maxPrice - minPrice || 1;
 
                   const points = priceHistory.map((item, index) => {
-                    const x =
-                      padding.left +
+                    const x = padding.left +
                       (priceHistory.length === 1
                         ? (width - padding.left - padding.right) / 2
                         : (index / (priceHistory.length - 1)) *
                           (width - padding.left - padding.right));
 
-                    const y =
-                      height -
-                      padding.bottom -
+                    const y = height - padding.bottom -
                       ((Number(item.average_price) - minPrice) / range) *
-                        (height - padding.top - padding.bottom);
+                      (height - padding.top - padding.bottom);
 
                     return { ...item, x, y };
                   });
@@ -1700,17 +1879,18 @@ const stockMessage =
                         {selectedPriceCrop} {ui.priceChartTitle}
                       </h3>
 
-                      <div className="w-full overflow-hidden">
+                      <div className="w-full overflow-x-auto">
                         <svg
                           viewBox={`0 0 ${width} ${height}`}
-                          className="h-auto w-full"
+                          className="h-auto min-w-[500px] w-full"
                           role="img"
                           aria-label={`${ui.priceChartTitle}: ${selectedPriceCrop}`}
                         >
                           {[0, 1, 2, 3].map((step) => {
-                            const y =
-                              padding.top +
-                              (step / 3) * (height - padding.top - padding.bottom);
+                            const y = padding.top +
+                              (step / 3) *
+                              (height - padding.top - padding.bottom);
+
                             const price = maxPrice - (step / 3) * range;
 
                             return (
@@ -1786,6 +1966,7 @@ const stockMessage =
             )}
           </section>
 
+          {/* FARMING OVERVIEW */}
           <section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-emerald-50 p-3 text-emerald-700">

@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Package,
   MapPin,
@@ -10,7 +11,9 @@ import {
   XCircle,
   Truck,
   RefreshCw,
+  MessageCircle,
 } from "lucide-react";
+
 import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -55,6 +58,9 @@ const translations = {
     loadError: "Failed to load orders. Please try again.",
     updateError: "Unable to update order. Please try again.",
     paymentError: "Unable to confirm payment. Please try again.",
+    contactBuyer: "Contact Buyer",
+    chatWithBuyer: "Chat with Buyer",
+    sendMessages: "Send messages and photos",
     confirmStatus: (id, status) =>
       `Change order #${id} to "${status}"?`,
     statusUpdated: (id, status) =>
@@ -113,6 +119,9 @@ const translations = {
     loadError: "ऑर्डर लोड नहीं हो पाए। कृपया फिर से प्रयास करें।",
     updateError: "ऑर्डर अपडेट नहीं हो पाया। कृपया फिर से प्रयास करें।",
     paymentError: "भुगतान की पुष्टि नहीं हो पाई। कृपया फिर से प्रयास करें।",
+    contactBuyer: "खरीदार से संपर्क करें",
+    chatWithBuyer: "खरीदार से चैट करें",
+    sendMessages: "संदेश और फ़ोटो भेजें",
     confirmStatus: (id, status) =>
       `क्या आप ऑर्डर #${id} की स्थिति "${status}" करना चाहते हैं?`,
     statusUpdated: (id, status) =>
@@ -153,8 +162,8 @@ const translations = {
     deliveryAddress: "ಡೆಲಿವರಿ ವಿಳಾಸ",
     addressUnavailable: "ವಿಳಾಸ ಲಭ್ಯವಿಲ್ಲ",
     payment: "ಪಾವತಿ",
-    cashOnDelivery: "ಡೆಲಿವರಿ ಸಮಯದಲ್ಲಿ ನಗದು ಪಾವತಿ",
     paymentStatus: "ಪಾವತಿ ಸ್ಥಿತಿ",
+    cashOnDelivery: "ಡೆಲಿವರಿ ಸಮಯದಲ್ಲಿ ನಗದು ಪಾವತಿ",
     orderProgress: "ಆರ್ಡರ್ ಪ್ರಗತಿ",
     rejectedMessage: "ಈ ಆರ್ಡರ್ ಅನ್ನು ತಿರಸ್ಕರಿಸಲಾಗಿದೆ.",
     deliveredMessage: "ಆರ್ಡರ್ ಯಶಸ್ವಿಯಾಗಿ ಡೆಲಿವರಿ ಆಗಿದೆ.",
@@ -171,6 +180,9 @@ const translations = {
     loadError: "ಆರ್ಡರ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
     updateError: "ಆರ್ಡರ್ ನವೀಕರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
     paymentError: "ಪಾವತಿಯನ್ನು ದೃಢೀಕರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+    contactBuyer: "ಖರೀದಿದಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ",
+    chatWithBuyer: "ಖರೀದಿದಾರರೊಂದಿಗೆ ಚಾಟ್ ಮಾಡಿ",
+    sendMessages: "ಸಂದೇಶಗಳು ಮತ್ತು ಫೋಟೋಗಳನ್ನು ಕಳುಹಿಸಿ",
     confirmStatus: (id, status) =>
       `ಆರ್ಡರ್ #${id} ಸ್ಥಿತಿಯನ್ನು "${status}" ಎಂದು ಬದಲಾಯಿಸಬೇಕೇ?`,
     statusUpdated: (id, status) =>
@@ -191,6 +203,7 @@ const translations = {
 };
 
 function Orders() {
+  const navigate = useNavigate();
   const { language } = useLanguage();
 
   const lang = translations[language] ? language : "en";
@@ -224,7 +237,6 @@ function Orders() {
       setOrders(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error loading farmer orders:", err);
-
       alert(err.response?.data?.error || t.loadError);
     } finally {
       setLoading(false);
@@ -260,9 +272,7 @@ function Orders() {
       alert(t.statusUpdated(order.id, getTranslatedStatus(newStatus)));
     } catch (err) {
       console.error("Update order error:", err);
-
       alert(err.response?.data?.error || t.updateError);
-
       await loadOrders();
     } finally {
       setUpdatingOrderId(null);
@@ -295,13 +305,25 @@ function Orders() {
       alert(t.paymentMarked(order.id));
     } catch (err) {
       console.error("COD payment confirmation error:", err);
-
       alert(err.response?.data?.error || t.paymentError);
-
       await loadOrders();
     } finally {
       setUpdatingOrderId(null);
     }
+  };
+
+  const openBuyerChat = (order) => {
+    if (!farmerEmail || !order.buyer_email) {
+      alert(t.loginAgain);
+      return;
+    }
+
+    navigate(`/farmer-chat/${order.id}`, {
+      state: {
+        order,
+        farmerEmail,
+      },
+    });
   };
 
   const getStatusStyle = (status) => {
@@ -597,6 +619,26 @@ function Orders() {
                             )}
                           </p>
                         </div>
+                      </div>
+
+                      {/* CHAT WITH BUYER */}
+                      <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                        <p className="mb-3 font-bold text-green-800">
+                          {t.contactBuyer}
+                        </p>
+
+                        <button
+                          onClick={() => openBuyerChat(order)}
+                          disabled={!order.buyer_email}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-4 py-3 font-semibold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <MessageCircle size={19} />
+                          {t.chatWithBuyer}
+                        </button>
+
+                        <p className="mt-2 text-center text-xs text-green-700">
+                          {t.sendMessages}
+                        </p>
                       </div>
 
                       {normalizedStatus !== "rejected" && (

@@ -68,11 +68,24 @@ function Register() {
       passwordHidden: "Password entered",
       voiceFailed: "Voice input failed. Please try again.",
       startFailed: "Unable to start voice input. Please try again.",
-      otpSentMessage: "Registration OTP sent to your email. Please check your inbox.",
+      otpSentMessage: "Registration OTP sent to your email. Please check your inbox and spam folder.",
       otpSuccess: "Registration successful! You can now log in.",
       otpRequired: "Please enter the OTP received in your email.",
       confirmationLabel: "Voice Confirmation",
+      invalidPhone: "Please enter a valid 10-digit mobile number.",
+      requiredDetails: "Please enter your name and email.",
+      confirmVoice: "Please confirm or reject the pending voice input first.",
+      otpFailed: "Unable to send registration OTP. Please try again.",
+      incorrectOtp: "Incorrect OTP. Please try again.",
+      expiredOtp: "OTP expired. Please register again.",
+      tooManyAttempts: "Too many incorrect attempts. Please register again.",
+      noPending: "No pending registration found. Please register again.",
+      emailExists: "Email already registered.",
+      registrationFailed: "Registration failed. Please try again.",
+      verifyFailed: "OTP verification failed. Please check the code and try again.",
+      otpPrompt: "Enter the verification code sent to",
     },
+
     hi: {
       title: "खाता बनाएँ",
       subtitle: "FarmConnect AI से जुड़ें",
@@ -108,10 +121,75 @@ function Register() {
       passwordHidden: "पासवर्ड दर्ज किया गया",
       voiceFailed: "वॉइस इनपुट विफल हुआ। फिर से कोशिश करें।",
       startFailed: "वॉइस इनपुट शुरू नहीं हो पाया। फिर से कोशिश करें।",
-      otpSentMessage: "पंजीकरण OTP आपके ईमेल पर भेज दिया गया है।",
+      otpSentMessage: "पंजीकरण OTP आपके ईमेल पर भेज दिया गया है। कृपया अपना इनबॉक्स और स्पैम फ़ोल्डर जाँचें।",
       otpSuccess: "पंजीकरण सफल रहा! अब आप लॉगिन कर सकते हैं।",
-      otpRequired: "कृपया ईमेल पर प्राप्त OTP दर्ज करें।",
+      otpRequired: "कृपया अपने ईमेल पर प्राप्त OTP दर्ज करें।",
       confirmationLabel: "आवाज़ की पुष्टि",
+      invalidPhone: "कृपया सही 10 अंकों का मोबाइल नंबर दर्ज करें।",
+      requiredDetails: "कृपया अपना नाम और ईमेल दर्ज करें।",
+      confirmVoice: "कृपया पहले वॉइस इनपुट की पुष्टि करें या उसे अस्वीकार करें।",
+      otpFailed: "पंजीकरण OTP भेजने में समस्या हुई। कृपया फिर कोशिश करें।",
+      incorrectOtp: "गलत OTP। कृपया फिर से कोशिश करें।",
+      expiredOtp: "OTP समाप्त हो गया है। कृपया फिर से पंजीकरण करें।",
+      tooManyAttempts: "बहुत बार गलत OTP दर्ज किया गया। कृपया फिर से पंजीकरण करें।",
+      noPending: "कोई लंबित पंजीकरण नहीं मिला। कृपया फिर से पंजीकरण करें।",
+      emailExists: "यह ईमेल पहले से पंजीकृत है।",
+      registrationFailed: "पंजीकरण विफल हुआ। कृपया फिर कोशिश करें।",
+      verifyFailed: "OTP सत्यापन विफल हुआ। कृपया OTP जाँचें और फिर कोशिश करें।",
+      otpPrompt: "इस ईमेल पर भेजा गया सत्यापन कोड दर्ज करें:",
+    },
+
+    kn: {
+      title: "ಖಾತೆ ರಚಿಸಿ",
+      subtitle: "FarmConnect AI ಗೆ ಸೇರಿ",
+      name: "ಪೂರ್ಣ ಹೆಸರು",
+      email: "ಇಮೇಲ್",
+      phone: "ಮೊಬೈಲ್ ಸಂಖ್ಯೆ",
+      city: "ನಗರ",
+      address: "ವಿಳಾಸ",
+      password: "ಪಾಸ್‌ವರ್ಡ್",
+      farmer: "ರೈತ",
+      buyer: "ಖರೀದಿದಾರ",
+      sendOtp: "ನೋಂದಣಿ ವಿವರಗಳನ್ನು ಪರಿಶೀಲಿಸಿ",
+      otpLabel: "ಇಮೇಲ್ ಪರಿಶೀಲನೆ OTP",
+      otpPlaceholder: "6 ಅಂಕಿಗಳ OTP ನಮೂದಿಸಿ",
+      verifyOtp: "OTP ಪರಿಶೀಲಿಸಿ ಮತ್ತು ನೋಂದಾಯಿಸಿ",
+      back: "ಲಾಗಿನ್‌ಗೆ ಹಿಂತಿರುಗಿ",
+      changeEmail: "ವಿವರಗಳನ್ನು ಬದಲಾಯಿಸಿ",
+      speak: "ಮಾತನಾಡಿ",
+      listening: "ಕೇಳಲಾಗುತ್ತಿದೆ...",
+      voiceError: "ಈ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಧ್ವನಿ ಇನ್‌ಪುಟ್ ಲಭ್ಯವಿಲ್ಲ.",
+      voicePermission: "ದಯವಿಟ್ಟು ಮೈಕ್ರೋಫೋನ್ ಅನುಮತಿಯನ್ನು ನೀಡಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      sending: "OTP ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ...",
+      verifying: "ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ...",
+      confirmPrompt: "ನಾನು ಕೇಳಿದ್ದು",
+      isCorrect: "ಇದು ಸರಿಯಾಗಿದೆಯೇ?",
+      yes: "ಹೌದು, ಖಚಿತಪಡಿಸಿ",
+      no: "ಇಲ್ಲ, ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
+      summaryTitle: "ನಿಮ್ಮ ವಿವರಗಳನ್ನು ಪರಿಶೀಲಿಸಿ",
+      summarySubtitle: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ನೋಂದಣಿ ಮಾಹಿತಿಯನ್ನು ಪರಿಶೀಲಿಸಿ.",
+      confirmSend: "ಖಚಿತಪಡಿಸಿ ಮತ್ತು OTP ಕಳುಹಿಸಿ",
+      editDetails: "ವಿವರಗಳನ್ನು ತಿದ್ದುಪಡಿ ಮಾಡಿ",
+      role: "ಖಾತೆಯ ಪ್ರಕಾರ",
+      passwordHidden: "ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಲಾಗಿದೆ",
+      voiceFailed: "ಧ್ವನಿ ಇನ್‌ಪುಟ್ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      startFailed: "ಧ್ವನಿ ಇನ್‌ಪುಟ್ ಪ್ರಾರಂಭಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
+      otpSentMessage: "ನೋಂದಣಿ OTP ನಿಮ್ಮ ಇಮೇಲ್‌ಗೆ ಕಳುಹಿಸಲಾಗಿದೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇನ್‌ಬಾಕ್ಸ್ ಮತ್ತು ಸ್ಪ್ಯಾಮ್ ಫೋಲ್ಡರ್ ಪರಿಶೀಲಿಸಿ.",
+      otpSuccess: "ನೋಂದಣಿ ಯಶಸ್ವಿಯಾಗಿದೆ! ಈಗ ನೀವು ಲಾಗಿನ್ ಮಾಡಬಹುದು.",
+      otpRequired: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಇಮೇಲ್‌ಗೆ ಬಂದ OTP ನಮೂದಿಸಿ.",
+      confirmationLabel: "ಧ್ವನಿ ದೃಢೀಕರಣ",
+      invalidPhone: "ದಯವಿಟ್ಟು ಸರಿಯಾದ 10 ಅಂಕಿಗಳ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯನ್ನು ನಮೂದಿಸಿ.",
+      requiredDetails: "ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಸರು ಮತ್ತು ಇಮೇಲ್ ನಮೂದಿಸಿ.",
+      confirmVoice: "ದಯವಿಟ್ಟು ಮೊದಲು ಧ್ವನಿ ಇನ್‌ಪುಟ್ ಅನ್ನು ದೃಢೀಕರಿಸಿ ಅಥವಾ ತಿರಸ್ಕರಿಸಿ.",
+      otpFailed: "ನೋಂದಣಿ OTP ಕಳುಹಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      incorrectOtp: "ತಪ್ಪಾದ OTP. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      expiredOtp: "OTP ಅವಧಿ ಮುಗಿದಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ನೋಂದಾಯಿಸಿ.",
+      tooManyAttempts: "ಹಲವಾರು ಬಾರಿ ತಪ್ಪಾದ OTP ನಮೂದಿಸಲಾಗಿದೆ. ಮತ್ತೆ ನೋಂದಾಯಿಸಿ.",
+      noPending: "ಯಾವುದೇ ಬಾಕಿ ನೋಂದಣಿ ಕಂಡುಬಂದಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೆ ನೋಂದಾಯಿಸಿ.",
+      emailExists: "ಈ ಇಮೇಲ್ ಈಗಾಗಲೇ ನೋಂದಾಯಿಸಲಾಗಿದೆ.",
+      registrationFailed: "ನೋಂದಣಿ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+      verifyFailed: "OTP ಪರಿಶೀಲನೆ ವಿಫಲವಾಗಿದೆ. ದಯವಿಟ್ಟು OTP ಪರಿಶೀಲಿಸಿ.",
+      otpPrompt: "ಈ ಇಮೇಲ್‌ಗೆ ಕಳುಹಿಸಿದ ಪರಿಶೀಲನಾ ಕೋಡ್ ನಮೂದಿಸಿ:",
     },
   };
 
@@ -257,14 +335,23 @@ function Register() {
     };
   }, []);
 
-  // First show the summary instead of sending OTP immediately.
   const handleRegister = (e) => {
     e.preventDefault();
 
     if (pendingConfirmation) {
-      setError(
-        "Please confirm or reject the pending voice input first."
-      );
+      setError(text.confirmVoice);
+      return;
+    }
+
+    const phone = formData.phone.replace(/\D/g, "");
+
+    if (phone.length !== 10) {
+      setError(text.invalidPhone);
+      return;
+    }
+
+    if (!formData.name.trim() || !formData.email.trim()) {
+      setError(text.requiredDetails);
       return;
     }
 
@@ -273,7 +360,6 @@ function Register() {
     setShowSummary(true);
   };
 
-  // Send OTP only after the user confirms the summary.
   const handleSendOtp = async () => {
     if (loading) return;
 
@@ -282,7 +368,7 @@ function Register() {
     setError("");
 
     try {
-      const response = await axios.post(`${API_URL}/register`, {
+      await axios.post(`${API_URL}/register`, {
         ...formData,
         email: formData.email.trim().toLowerCase(),
       });
@@ -291,16 +377,21 @@ function Register() {
       setShowSummary(false);
       setOtp("");
 
-      setMessage(
-        response.data.message || text.otpSentMessage
-      );
+      setMessage(text.otpSentMessage);
+      speakText(text.otpSentMessage);
     } catch (err) {
       console.error("REGISTRATION OTP ERROR:", err);
 
-      setError(
-        err.response?.data?.message ||
-          "Unable to send registration OTP. Please try again."
-      );
+      const serverMessage = err.response?.data?.message || "";
+
+      const translatedErrors = {
+        "Email already registered": text.emailExists,
+        "Unable to send OTP or start registration": text.otpFailed,
+        "Name, email, password, and role are required": text.requiredDetails,
+        "Role must be farmer or buyer": text.registrationFailed,
+      };
+
+      setError(translatedErrors[serverMessage] || text.otpFailed);
     } finally {
       setLoading(false);
     }
@@ -321,7 +412,7 @@ function Register() {
     setError("");
 
     try {
-      const response = await axios.post(
+      await axios.post(
         `${API_URL}/verify-registration-otp`,
         {
           email: formData.email.trim().toLowerCase(),
@@ -329,10 +420,8 @@ function Register() {
         }
       );
 
-      setMessage(
-        response.data.message || text.otpSuccess
-      );
-
+      setMessage(text.otpSuccess);
+      speakText(text.otpSuccess);
       setFormData({
         name: "",
         email: "",
@@ -350,10 +439,18 @@ function Register() {
     } catch (err) {
       console.error("REGISTRATION OTP VERIFICATION ERROR:", err);
 
-      setError(
-        err.response?.data?.message ||
-          "OTP verification failed. Please check the code and try again."
-      );
+      const serverMessage = err.response?.data?.message || "";
+
+      const translatedErrors = {
+        "Incorrect OTP. Please try again.": text.incorrectOtp,
+        "OTP expired. Please register again.": text.expiredOtp,
+        "Too many incorrect attempts. Please register again.": text.tooManyAttempts,
+        "No pending registration found. Please register again.": text.noPending,
+        "Email already registered": text.emailExists,
+        "Registration failed": text.registrationFailed,
+      };
+
+      setError(translatedErrors[serverMessage] || text.verifyFailed);
     } finally {
       setLoading(false);
     }
@@ -590,8 +687,8 @@ function Register() {
           <form onSubmit={handleVerifyOtp} className="mt-8 space-y-4">
 
             <p className="text-sm text-gray-600">
-              Enter the verification code sent to{" "}
-              <strong>{formData.email}</strong>.
+              {text.otpPrompt}{" "}
+              <strong>{formData.email}</strong>
             </p>
 
             <label

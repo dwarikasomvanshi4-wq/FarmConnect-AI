@@ -16,7 +16,10 @@ import BuyerOrders from "./pages/BuyerOrders";
 import Profile from "./pages/Profile";
 import Earnings from "./pages/Earnings";
 import Voice from "./pages/Voice";
+import BuyerChat from "./pages/BuyerChat";
+import FarmerChat from "./pages/FarmerChat";
 
+import GlobalChatWidget from "./components/GlobalChatWidget";
 import { LanguageProvider } from "./i18n/LanguageContext";
 
 function App() {
@@ -27,18 +30,29 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+
         <Route path="/farmer-dashboard" element={<FarmerDashboard />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
+
         <Route path="/add-crop" element={<AddCrop />} />
         <Route path="/my-crops" element={<MyCrops />} />
         <Route path="/weather" element={<Weather />} />
         <Route path="/checkout" element={<Checkout />} />
+
         <Route path="/orders" element={<Orders />} />
         <Route path="/buyer-orders" element={<BuyerOrders />} />
+
         <Route path="/profile" element={<Profile />} />
         <Route path="/earnings" element={<Earnings />} />
         <Route path="/voice" element={<Voice />} />
+
+        {/* Chat routes */}
+        <Route path="/buyer-chat/:orderId" element={<BuyerChat />} />
+        <Route path="/farmer-chat/:orderId" element={<FarmerChat />} />
       </Routes>
+
+      {/* Global chat available throughout the app */}
+      <GlobalChatWidget />
     </LanguageProvider>
   );
 }

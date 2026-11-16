@@ -16,6 +16,8 @@ import {
   MapPin,
   CreditCard,
   XCircle,
+  MessageCircle,
+  Phone,
 } from "lucide-react";
 
 const translations = {
@@ -43,7 +45,14 @@ const translations = {
     delivered: "Delivered",
     rejected: "Rejected",
     farmer: "Farmer",
+    contactFarmer: "Contact Farmer",
+    chatInFarmConnect: "Chat in FarmConnect",
+    sendMessagesPhotos: "Send messages and photos",
+    callFarmer: "Call Farmer",
+    urgentDiscussions: "For urgent discussions",
+    whatsapp: "WhatsApp",
     notAvailable: "Not available",
+    phoneUnavailable: "Phone number unavailable",
     quantity: "Quantity",
     kg: "Kg",
     totalAmount: "Total Amount",
@@ -104,7 +113,14 @@ const translations = {
     delivered: "डिलीवर हो गया",
     rejected: "अस्वीकार किया गया",
     farmer: "किसान",
+    contactFarmer: "किसान से संपर्क करें",
+    chatInFarmConnect: "FarmConnect में चैट करें",
+    sendMessagesPhotos: "संदेश और फ़ोटो भेजें",
+    callFarmer: "किसान को कॉल करें",
+    urgentDiscussions: "ज़रूरी बातचीत के लिए",
+    whatsapp: "WhatsApp",
     notAvailable: "उपलब्ध नहीं",
+    phoneUnavailable: "फ़ोन नंबर उपलब्ध नहीं है",
     quantity: "मात्रा",
     kg: "किलो",
     totalAmount: "कुल राशि",
@@ -165,7 +181,14 @@ const translations = {
     delivered: "ತಲುಪಿಸಲಾಗಿದೆ",
     rejected: "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
     farmer: "ರೈತ",
+    contactFarmer: "ರೈತರನ್ನು ಸಂಪರ್ಕಿಸಿ",
+    chatInFarmConnect: "FarmConnect ನಲ್ಲಿ ಚಾಟ್ ಮಾಡಿ",
+    sendMessagesPhotos: "ಸಂದೇಶಗಳು ಮತ್ತು ಫೋಟೋಗಳನ್ನು ಕಳುಹಿಸಿ",
+    callFarmer: "ರೈತರಿಗೆ ಕರೆ ಮಾಡಿ",
+    urgentDiscussions: "ತುರ್ತು ಚರ್ಚೆಗಳಿಗಾಗಿ",
+    whatsapp: "WhatsApp",
     notAvailable: "ಲಭ್ಯವಿಲ್ಲ",
+    phoneUnavailable: "ಫೋನ್ ಸಂಖ್ಯೆ ಲಭ್ಯವಿಲ್ಲ",
     quantity: "ಪ್ರಮಾಣ",
     kg: "ಕೆ.ಜಿ.",
     totalAmount: "ಒಟ್ಟು ಮೊತ್ತ",
@@ -202,6 +225,25 @@ const translations = {
     backDashboard: "ಖರೀದಿದಾರರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹಿಂತಿರುಗಿ",
   },
 };
+
+// Converts Indian phone numbers into the format required by tel: and WhatsApp.
+function getIndianPhoneNumber(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return `91${digits.slice(1)}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return digits;
+  }
+
+  return "";
+}
 
 function BuyerOrders() {
   const navigate = useNavigate();
@@ -499,6 +541,19 @@ function BuyerOrders() {
               const paymentMethod = order.payment_method || "COD";
               const paymentStatus = order.payment_status || "Pending";
 
+              const farmerPhone = getIndianPhoneNumber(order.farmer_phone);
+
+              const whatsappMessage =
+                `Hello ${order.farmer_name || "Farmer"}, ` +
+                `I am contacting you about my FarmConnect order #${order.id} ` +
+                `for ${order.crop_name || "the crop"}.`;
+
+              const whatsappLink = farmerPhone
+                ? `https://wa.me/${farmerPhone}?text=${encodeURIComponent(
+                    whatsappMessage
+                  )}`
+                : "";
+
               return (
                 <div
                   key={order.id}
@@ -537,7 +592,7 @@ function BuyerOrders() {
                         <div className="min-w-0">
                           <p className="text-gray-500 text-sm">{t("farmer")}</p>
                           <p className="font-semibold break-all">
-                            {order.farmer_email || t("notAvailable")}
+                            {order.farmer_name || order.farmer_email || t("notAvailable")}
                           </p>
                         </div>
                       </div>
@@ -643,6 +698,101 @@ function BuyerOrders() {
                           : `${t("orderStatus")}: ${translateStatus(status)}`}
                       </p>
                       <p className="mt-1">{getStatusMessage(status)}</p>
+                    </div>
+
+                    {/* CONTACT FARMER */}
+                    <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5">
+                      <h3 className="text-lg font-bold text-green-800 flex items-center gap-2">
+                        <MessageCircle size={21} />
+                        {t("contactFarmer")}
+                      </h3>
+
+                      <div className="mt-4 grid sm:grid-cols-3 gap-3">
+                        {/* IN-APP CHAT */}
+                        <button
+                          onClick={() =>
+                            navigate(`/buyer-chat/${order.id}`, {
+                              state: {
+                                order,
+                                buyerEmail,
+                              },
+                            })
+                          }
+                          className="flex items-center gap-3 rounded-xl bg-green-700 p-4 text-left text-white hover:bg-green-800 transition"
+                        >
+                          <MessageCircle size={23} />
+                          <span>
+                            <span className="block font-bold">
+                              {t("chatInFarmConnect")}
+                            </span>
+                            <span className="block text-xs text-green-100 mt-1">
+                              {t("sendMessagesPhotos")}
+                            </span>
+                          </span>
+                        </button>
+
+                        {/* CALL FARMER */}
+                        {farmerPhone ? (
+                          <a
+                            href={`tel:+${farmerPhone}`}
+                            className="flex items-center gap-3 rounded-xl bg-white border border-green-200 p-4 text-left hover:bg-green-100 transition"
+                          >
+                            <Phone size={23} className="text-green-700 shrink-0" />
+                            <span>
+                              <span className="block font-bold text-gray-800">
+                                {t("callFarmer")}
+                              </span>
+                              <span className="block text-xs text-gray-500 mt-1">
+                                {t("urgentDiscussions")}
+                              </span>
+                            </span>
+                          </a>
+                        ) : (
+                          <div className="flex items-center gap-3 rounded-xl bg-gray-100 border border-gray-200 p-4 text-left opacity-60 cursor-not-allowed">
+                            <Phone size={23} className="text-gray-500 shrink-0" />
+                            <span>
+                              <span className="block font-bold text-gray-700">
+                                {t("callFarmer")}
+                              </span>
+                              <span className="block text-xs text-gray-500 mt-1">
+                                {t("phoneUnavailable")}
+                              </span>
+                            </span>
+                          </div>
+                        )}
+
+                        {/* WHATSAPP */}
+                        {farmerPhone ? (
+                          <a
+                            href={whatsappLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 rounded-xl bg-white border border-green-200 p-4 text-left hover:bg-green-100 transition"
+                          >
+                            <MessageCircle size={23} className="text-green-700 shrink-0" />
+                            <span>
+                              <span className="block font-bold text-gray-800">
+                                {t("whatsapp")}
+                              </span>
+                              <span className="block text-xs text-gray-500 mt-1">
+                                {t("urgentDiscussions")}
+                              </span>
+                            </span>
+                          </a>
+                        ) : (
+                          <div className="flex items-center gap-3 rounded-xl bg-gray-100 border border-gray-200 p-4 text-left opacity-60 cursor-not-allowed">
+                            <MessageCircle size={23} className="text-gray-500 shrink-0" />
+                            <span>
+                              <span className="block font-bold text-gray-700">
+                                {t("whatsapp")}
+                              </span>
+                              <span className="block text-xs text-gray-500 mt-1">
+                                {t("phoneUnavailable")}
+                              </span>
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {!rejected && (

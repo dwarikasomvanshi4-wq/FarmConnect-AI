@@ -271,117 +271,101 @@ def verify_registration_otp():
 # GET PROFILE
 # =========================================================
 
+
+# =========================================================
+# GET USER PROFILE
+# =========================================================
+
 @app.route("/profile/<email>", methods=["GET"])
 def get_profile(email):
-
     try:
+        normalized_email = email.strip().lower()
 
         with engine.connect() as conn:
-
             user = conn.execute(
                 text("""
-                    SELECT
-                        id,
-                        name,
-                        email,
-                        phone,
-                        address,
-                        city,
-                        role
+                    SELECT id, name, email, phone, address, city, role
                     FROM users
-                    WHERE email = :email
+                    WHERE LOWER(TRIM(email)) = :email
                 """),
-                {
-                    "email": email
-                }
-            ).fetchone()
-
+                {"email": normalized_email}
+            ).mappings().first()
 
         if not user:
-
-            return jsonify({
-                "message": "User not found"
-            }), 404
-
+            return jsonify({"message": "User not found"}), 404
 
         return jsonify({
+            "id": user["id"],
+            "name": user["name"] or "",
+            "email": user["email"],
+            "phone": user["phone"] or "",
+            "address": user["address"] or "",
+            "city": user["city"] or "",
+            "role": user["role"] or ""
+        }), 200
 
-            "id": user.id,
-
-            "name": user.name,
-
-            "email": user.email,
-
-            "phone": user.phone or "",
-
-            "address": user.address or "",
-
-            "city": user.city or "",
-
-            "role": user.role
-
-        })
-
-
-    except Exception as e:
-
-        print("PROFILE ERROR:", e)
-
-        return jsonify({
-            "error": str(e)
-        }), 500
+    except Exception:
+        app.logger.exception("PROFILE ERROR")
+        return jsonify({"message": "Unable to fetch profile"}), 500
 
 
 # =========================================================
-# UPDATE PROFILE
+# UPDATE USER PROFILE
 # =========================================================
 
 @app.route("/profile/<email>", methods=["PUT"])
 def update_profile(email):
+    data = request.get_json(silent=True) or {}
 
-    data = request.json
+    name = str(data.get("name", "")).strip()
+    phone = "".join(
+        character for character in str(data.get("phone", ""))
+        if character.isdigit()
+    )
+    address = str(data.get("address", "")).strip()
+    city = str(data.get("city", "")).strip()
+
+    if not name:
+        return jsonify({"message": "Name is required"}), 400
+
+    if len(phone) != 10:
+        return jsonify({
+            "message": "Please enter a valid 10-digit phone number"
+        }), 400
 
     try:
+        normalized_email = email.strip().lower()
 
-        with engine.connect() as conn:
-
-            conn.execute(
+        with engine.begin() as conn:
+            result = conn.execute(
                 text("""
                     UPDATE users
-
                     SET
                         name = :name,
                         phone = :phone,
                         address = :address,
                         city = :city
-
-                    WHERE email = :email
+                    WHERE LOWER(TRIM(email)) = :email
                 """),
                 {
-                    "name": data["name"],
-                    "phone": data.get("phone", ""),
-                    "address": data.get("address", ""),
-                    "city": data.get("city", ""),
-                    "email": email
+                    "name": name,
+                    "phone": phone,
+                    "address": address,
+                    "city": city,
+                    "email": normalized_email
                 }
             )
 
-            conn.commit()
-
-
-        return jsonify({
-            "message": "Profile Updated Successfully"
-        })
-
-
-    except Exception as e:
-
-        print("UPDATE PROFILE ERROR:", e)
+            if result.rowcount == 0:
+                return jsonify({"message": "User not found"}), 404
 
         return jsonify({
-            "error": str(e)
-        }), 500
+            "message": "Profile updated successfully"
+        }), 200
 
+    except Exception:
+        app.logger.exception("UPDATE PROFILE ERROR")
+        return jsonify({"message": "Unable to update profile"}), 500
 
 # =========================================================
 # LOGIN
@@ -1448,6 +1432,7 @@ def farmer_orders(email):
 # GET BUYER ORDERS
 # =========================================================
 
+
 @app.route("/buyer-orders/<email>", methods=["GET"])
 def buyer_orders(email):
     try:
@@ -1457,21 +1442,25 @@ def buyer_orders(email):
             orders = conn.execute(
                 text("""
                     SELECT
-                        id,
-                        crop_id,
-                        buyer_email,
-                        farmer_email,
-                        crop_name,
-                        quantity,
-                        total_price,
-                        status,
-                        order_date,
-                        delivery_address,
-                        payment_method,
-                        payment_status
-                    FROM orders
-                    WHERE LOWER(TRIM(buyer_email)) = :email
-                    ORDER BY id DESC
+                        o.id,
+                        o.crop_id,
+                        o.buyer_email,
+                        o.farmer_email,
+                        o.crop_name,
+                        o.quantity,
+                        o.total_price,
+                        o.status,
+                        o.order_date,
+                        o.delivery_address,
+                        o.payment_method,
+                        o.payment_status,
+                        u.name AS farmer_name,
+                        u.phone AS farmer_phone
+                    FROM orders o
+                    LEFT JOIN users u
+                        ON LOWER(TRIM(u.email)) = LOWER(TRIM(o.farmer_email))
+                    WHERE LOWER(TRIM(o.buyer_email)) = :email
+                    ORDER BY o.id DESC
                 """),
                 {"email": buyer_email}
             ).mappings().all()
@@ -1482,6 +1471,8 @@ def buyer_orders(email):
                 "crop_id": order["crop_id"],
                 "buyer_email": order["buyer_email"],
                 "farmer_email": order["farmer_email"],
+                "farmer_name": order["farmer_name"] or "",
+                "farmer_phone": order["farmer_phone"] or "",
                 "crop_name": order["crop_name"],
                 "quantity": order["quantity"],
                 "total_price": float(order["total_price"] or 0),
@@ -1499,6 +1490,488 @@ def buyer_orders(email):
     except Exception:
         app.logger.exception("BUYER ORDERS ERROR")
         return jsonify({"error": "Unable to fetch buyer orders"}), 500
+
+# =========================================================
+# ORDER CHAT - GET MESSAGES
+# =========================================================
+
+@app.route("/order-messages/<int:order_id>", methods=["GET"])
+def get_order_messages(order_id):
+    requester_email = (
+        request.args.get("email") or ""
+    ).strip().lower()
+
+    if not requester_email:
+        return jsonify({"error": "Email is required"}), 400
+
+    try:
+        with engine.connect() as conn:
+            order = conn.execute(
+                text("""
+                    SELECT buyer_email, farmer_email
+                    FROM orders
+                    WHERE id = :order_id
+                """),
+                {"order_id": order_id}
+            ).mappings().first()
+
+            if not order:
+                return jsonify({"error": "Order not found"}), 404
+
+            participants = {
+                (order["buyer_email"] or "").strip().lower(),
+                (order["farmer_email"] or "").strip().lower()
+            }
+
+            if requester_email not in participants:
+                return jsonify({"error": "Access denied"}), 403
+
+            messages = conn.execute(
+                text("""
+                    SELECT
+                        id,
+                        order_id,
+                        sender_email,
+                        receiver_email,
+                        message,
+                        image_url,
+                        created_at,
+                        is_read
+                    FROM messages
+                    WHERE order_id = :order_id
+                    ORDER BY created_at ASC, id ASC
+                """),
+                {"order_id": order_id}
+            ).mappings().all()
+
+        return jsonify([
+            {
+                "id": item["id"],
+                "order_id": item["order_id"],
+                "sender_email": item["sender_email"],
+                "receiver_email": item["receiver_email"],
+                "message": item["message"] or "",
+                "image_url": item["image_url"] or "",
+                "created_at": str(item["created_at"]),
+                "is_read": bool(item["is_read"])
+            }
+            for item in messages
+        ]), 200
+
+    except Exception:
+        app.logger.exception("GET ORDER MESSAGES ERROR")
+        return jsonify({"error": "Unable to load messages"}), 500
+
+
+# =========================================================
+# ORDER CHAT - SEND MESSAGE
+# =========================================================
+
+@app.route("/send-message", methods=["POST"])
+def send_message():
+    data = request.get_json(silent=True) or {}
+
+    try:
+        order_id = int(data.get("order_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Valid order ID is required"}), 400
+
+    sender_email = (
+        data.get("sender_email") or ""
+    ).strip().lower()
+
+    receiver_email = (
+        data.get("receiver_email") or ""
+    ).strip().lower()
+
+    message = (data.get("message") or "").strip()
+    image_url = (data.get("image_url") or "").strip()
+
+    if not sender_email or not receiver_email:
+        return jsonify({
+            "error": "Sender and receiver emails are required"
+        }), 400
+
+    if not message and not image_url:
+        return jsonify({
+            "error": "Please enter a message or attach an image"
+        }), 400
+
+    try:
+        with engine.begin() as conn:
+            order = conn.execute(
+                text("""
+                    SELECT buyer_email, farmer_email
+                    FROM orders
+                    WHERE id = :order_id
+                """),
+                {"order_id": order_id}
+            ).mappings().first()
+
+            if not order:
+                return jsonify({"error": "Order not found"}), 404
+
+            buyer_email = (
+                order["buyer_email"] or ""
+            ).strip().lower()
+
+            farmer_email = (
+                order["farmer_email"] or ""
+            ).strip().lower()
+
+            valid_pair = {
+                (buyer_email, farmer_email),
+                (farmer_email, buyer_email)
+            }
+
+            if (sender_email, receiver_email) not in valid_pair:
+                return jsonify({
+                    "error": "Sender and receiver must belong to this order"
+                }), 403
+
+            result = conn.execute(
+                text("""
+                    INSERT INTO messages (
+                        order_id,
+                        sender_email,
+                        receiver_email,
+                        message,
+                        image_url
+                    )
+                    VALUES (
+                        :order_id,
+                        :sender_email,
+                        :receiver_email,
+                        :message,
+                        :image_url
+                    )
+                """),
+                {
+                    "order_id": order_id,
+                    "sender_email": sender_email,
+                    "receiver_email": receiver_email,
+                    "message": message,
+                    "image_url": image_url
+                }
+            )
+
+            message_id = result.lastrowid
+
+        return jsonify({
+            "message": "Message sent successfully",
+            "message_id": message_id
+        }), 201
+
+    except Exception:
+        app.logger.exception("SEND MESSAGE ERROR")
+        return jsonify({"error": "Unable to send message"}), 500
+    
+
+# =========================================================
+# GLOBAL CHAT - GET ALL CONVERSATIONS
+# =========================================================
+
+
+# =========================================================
+# GLOBAL CHAT - GET ALL CONVERSATIONS
+# =========================================================
+
+@app.route("/chat-conversations/<path:email>", methods=["GET"])
+def get_chat_conversations(email):
+    email = email.strip().lower()
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text("""
+                    SELECT
+                        o.id AS order_id,
+                        o.crop_name,
+                        o.buyer_email,
+                        o.farmer_email,
+
+                        CASE
+                            WHEN LOWER(o.buyer_email) = :email
+                            THEN o.farmer_email
+                            ELSE o.buyer_email
+                        END AS other_email,
+
+                        CASE
+                            WHEN LOWER(o.buyer_email) = :email
+                            THEN COALESCE(
+                                NULLIF(farmer.name, ''),
+                                o.farmer_email
+                            )
+                            ELSE COALESCE(
+                                NULLIF(buyer.name, ''),
+                                o.buyer_email
+                            )
+                        END AS other_name,
+
+                        COALESCE(
+                            NULLIF(m.message, ''),
+                            CASE
+                                WHEN m.image_url IS NOT NULL
+                                THEN 'Photo'
+                                ELSE ''
+                            END
+                        ) AS last_message,
+
+                        m.created_at AS last_message_at,
+
+                        (
+                            SELECT COUNT(*)
+                            FROM messages unread
+                            WHERE unread.order_id = o.id
+                              AND LOWER(unread.receiver_email) = :email
+                              AND unread.is_read = 0
+                        ) AS unread_count
+
+                    FROM orders o
+
+                    LEFT JOIN users buyer
+                        ON LOWER(buyer.email) = LOWER(o.buyer_email)
+
+                    LEFT JOIN users farmer
+                        ON LOWER(farmer.email) = LOWER(o.farmer_email)
+
+                    INNER JOIN messages m
+                        ON m.id = (
+                            SELECT MAX(m2.id)
+                            FROM messages m2
+                            WHERE m2.order_id = o.id
+                        )
+
+                    WHERE LOWER(o.buyer_email) = :email
+                       OR LOWER(o.farmer_email) = :email
+
+                    ORDER BY m.created_at DESC, m.id DESC
+                """),
+                {"email": email}
+            ).mappings().all()
+
+        return jsonify([dict(row) for row in rows]), 200
+
+    except Exception as e:
+        print("Chat conversations error:", str(e))
+        return jsonify({"error": "Unable to load conversations"}), 500
+
+# =========================================================
+# GLOBAL CHAT - MARK MESSAGES AS READ
+# =========================================================
+
+@app.route("/mark-messages-read/<int:order_id>", methods=["POST"])
+def mark_messages_read(order_id):
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    try:
+        with engine.begin() as conn:
+            order = conn.execute(
+                text("""
+                    SELECT buyer_email, farmer_email
+                    FROM orders
+                    WHERE id = :order_id
+                """),
+                {"order_id": order_id}
+            ).mappings().first()
+
+            if not order:
+                return jsonify({"error": "Order not found"}), 404
+
+            participants = {
+                (order["buyer_email"] or "").lower(),
+                (order["farmer_email"] or "").lower()
+            }
+
+            if email not in participants:
+                return jsonify({"error": "Access denied"}), 403
+
+            conn.execute(
+                text("""
+                    UPDATE messages
+                    SET is_read = 1
+                    WHERE order_id = :order_id
+                      AND LOWER(receiver_email) = :email
+                      AND is_read = 0
+                """),
+                {
+                    "order_id": order_id,
+                    "email": email
+                }
+            )
+
+        return jsonify({
+            "success": True,
+            "message": "Messages marked as read"
+        }), 200
+
+    except Exception as e:
+        print("Mark messages read error:", str(e))
+        return jsonify({"error": "Unable to update messages"}), 500
+
+
+
+# =========================================================
+# FARMER SALES ANALYTICS
+# =========================================================
+
+@app.route("/farmer-sales-analytics/<email>", methods=["GET"])
+def farmer_sales_analytics(email):
+
+    farmer_email = (email or "").strip().lower()
+
+    if not farmer_email:
+        return jsonify({
+            "error": "Farmer email is required"
+        }), 400
+
+    try:
+        with engine.connect() as conn:
+
+            # 1. Overall sales summary
+            summary = conn.execute(
+                text("""
+                    SELECT
+                        COUNT(*) AS total_orders,
+
+                        SUM(
+                            CASE
+                                WHEN LOWER(TRIM(status)) = 'delivered'
+                                THEN 1 ELSE 0
+                            END
+                        ) AS delivered_orders,
+
+                        SUM(
+                            CASE
+                                WHEN LOWER(TRIM(status)) = 'pending'
+                                THEN 1 ELSE 0
+                            END
+                        ) AS pending_orders,
+
+                        SUM(
+                            CASE
+                                WHEN LOWER(TRIM(status)) = 'accepted'
+                                THEN 1 ELSE 0
+                            END
+                        ) AS accepted_orders,
+
+                        SUM(
+                            CASE
+                                WHEN LOWER(TRIM(status)) = 'rejected'
+                                THEN 1 ELSE 0
+                            END
+                        ) AS rejected_orders,
+
+                        SUM(
+                            CASE
+                                WHEN LOWER(TRIM(status)) = 'shipped'
+                                THEN 1 ELSE 0
+                            END
+                        ) AS shipped_orders,
+
+                        COALESCE(
+                            SUM(
+                                CASE
+                                    WHEN LOWER(TRIM(status)) = 'delivered'
+                                    THEN total_price ELSE 0
+                                END
+                            ), 0
+                        ) AS total_revenue,
+
+                        COALESCE(
+                            SUM(
+                                CASE
+                                    WHEN LOWER(TRIM(status)) = 'delivered'
+                                    THEN quantity ELSE 0
+                                END
+                            ), 0
+                        ) AS total_quantity_sold
+
+                    FROM orders
+                    WHERE LOWER(TRIM(farmer_email)) = :email
+                """),
+                {"email": farmer_email}
+            ).mappings().first()
+
+            # 2. Monthly delivered sales
+            monthly_rows = conn.execute(
+                text("""
+                    SELECT
+                        DATE_FORMAT(order_date, '%Y-%m') AS month,
+                        COALESCE(SUM(total_price), 0) AS revenue,
+                        COUNT(*) AS total_orders
+                    FROM orders
+                    WHERE LOWER(TRIM(farmer_email)) = :email
+                      AND LOWER(TRIM(status)) = 'delivered'
+                    GROUP BY DATE_FORMAT(order_date, '%Y-%m')
+                    ORDER BY MIN(order_date) ASC
+                """),
+                {"email": farmer_email}
+            ).mappings().all()
+
+            # 3. Best-selling crops
+            crop_rows = conn.execute(
+                text("""
+                    SELECT
+                        crop_name,
+                        SUM(quantity) AS total_quantity,
+                        SUM(total_price) AS total_revenue
+                    FROM orders
+                    WHERE LOWER(TRIM(farmer_email)) = :email
+                      AND LOWER(TRIM(status)) = 'delivered'
+                    GROUP BY crop_name
+                    ORDER BY total_quantity DESC
+                """),
+                {"email": farmer_email}
+            ).mappings().all()
+
+        # Prepare JSON response
+        result = {
+            "total_orders": int(summary["total_orders"] or 0),
+            "delivered_orders": int(summary["delivered_orders"] or 0),
+            "pending_orders": int(summary["pending_orders"] or 0),
+            "accepted_orders": int(summary["accepted_orders"] or 0),
+            "rejected_orders": int(summary["rejected_orders"] or 0),
+            "shipped_orders": int(summary["shipped_orders"] or 0),
+            "total_revenue": float(summary["total_revenue"] or 0),
+            "total_quantity_sold": int(
+                summary["total_quantity_sold"] or 0
+            ),
+
+            "monthly_sales": [
+                {
+                    "month": row["month"],
+                    "revenue": float(row["revenue"] or 0),
+                    "total_orders": int(row["total_orders"] or 0)
+                }
+                for row in monthly_rows
+            ],
+
+            "top_crops": [
+                {
+                    "crop_name": row["crop_name"],
+                    "total_quantity": int(row["total_quantity"] or 0),
+                    "total_revenue": float(row["total_revenue"] or 0)
+                }
+                for row in crop_rows
+            ]
+        }
+
+        return jsonify(result), 200
+
+    except Exception:
+        app.logger.exception("FARMER SALES ANALYTICS ERROR")
+        return jsonify({
+            "error": "Unable to fetch farmer sales analytics"
+        }), 500
+
 
     
         
