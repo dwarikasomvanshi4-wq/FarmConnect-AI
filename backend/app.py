@@ -29,6 +29,7 @@ def notify_buyer(buyer_email, subject, message):
 
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 load_dotenv()
 
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
@@ -2504,9 +2505,6 @@ def crop_price_trends():
 # =========================================================
 
 if __name__ == "__main__":
-
-    app.run(
-        debug=True
-    )
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
     
 
