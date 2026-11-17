@@ -9,3 +9,4 @@ gunicorn
 Werkzeug
 requests
 certifi
+firebase-admin==7.8.0

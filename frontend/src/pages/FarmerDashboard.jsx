@@ -7,6 +7,7 @@ import {
   CheckCircle2, TrendingUp, Download
 } from "lucide-react";
 import api from "../services/api";
+import { registerFarmerForNotifications } from "../notificationService";
 import { useLanguage } from "../i18n/LanguageContext";
 
 const languageMap = { en: "en-IN", hi: "hi-IN", kn: "kn-IN" };
@@ -418,6 +419,30 @@ function FarmerDashboard() {
   const [salesAnalytics, setSalesAnalytics] = useState(null);
 const [analyticsLoading, setAnalyticsLoading] = useState(false);
 const [analyticsError, setAnalyticsError] = useState("");
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const handleEnableNotifications = async () => {
+    setNotificationLoading(true);
+    setNotificationMessage("");
+
+    try {
+      const result = await registerFarmerForNotifications();
+
+      setNotificationMessage(result.message);
+
+      if (result.success) {
+        setNotificationsEnabled(true);
+      }
+    } catch (error) {
+      console.error("Enable notifications failed:", error);
+      setNotificationMessage(
+        "Unable to enable notifications. Please try again."
+      );
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
 
   // Load weather using the farmer's current location.
   const loadWeather = useCallback(() => {
@@ -1244,9 +1269,25 @@ const filteredDeliveredOrders = useMemo(() => {
               <RefreshCw size={20} />
             </button>
 
-            <div className="rounded-full bg-green-100 p-3 text-green-800">
-              <Bell size={22} />
-            </div>
+                        <button
+              onClick={handleEnableNotifications}
+              disabled={notificationLoading || notificationsEnabled}
+              className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                notificationsEnabled
+                  ? "bg-green-100 text-green-800"
+                  : "bg-emerald-700 text-white hover:bg-emerald-800"
+              } disabled:cursor-not-allowed`}
+              title="Enable order notifications"
+            >
+              <Bell size={20} />
+              <span>
+                {notificationLoading
+                  ? "Enabling..."
+                  : notificationsEnabled
+                  ? "Notifications Enabled"
+                  : "Enable Notifications"}
+              </span>
+            </button>
 
             <img
               src="https://ui-avatars.com/api/?name=Farmer&background=166534&color=fff"
@@ -1255,6 +1296,11 @@ const filteredDeliveredOrders = useMemo(() => {
             />
           </div>
         </header>
+                {notificationMessage && (
+          <div className="mx-4 mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800 md:mx-8">
+            {notificationMessage}
+          </div>
+        )}
 
         <div className="space-y-8 p-4 md:p-8">
           {dashboardError && (

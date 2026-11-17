@@ -1,6 +1,9 @@
 import os
 import secrets
 import time
+import json
+import firebase_admin
+from firebase_admin import credentials, messaging
 
 import requests
 import certifi
@@ -15,7 +18,32 @@ from sqlalchemy.engine import URL
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"), override=True)
+# =========================================================
+# FIREBASE ADMIN INITIALIZATION
+# =========================================================
+
+firebase_app = None
+
+firebase_credentials_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+
+if firebase_credentials_json:
+    try:
+        service_account_info = json.loads(firebase_credentials_json)
+        firebase_credentials = credentials.Certificate(service_account_info)
+
+        if not firebase_admin._apps:
+            firebase_app = firebase_admin.initialize_app(firebase_credentials)
+        else:
+            firebase_app = firebase_admin.get_app()
+
+        print("Firebase Admin initialized successfully.")
+
+    except Exception:
+        app_logger_message = "Firebase Admin initialization failed."
+        print(app_logger_message)
+else:
+    print("Firebase Admin credentials not configured.")
 def notify_buyer(buyer_email, subject, message):
     if not buyer_email:
         print("Notification skipped: buyer email is missing.")
@@ -103,6 +131,63 @@ engine = create_engine(
     },
     pool_pre_ping=True,
 )
+# =========================================================
+# SEND FARMER PUSH NOTIFICATIONS
+# =========================================================
+
+def send_farmer_push_notification(farmer_email, title, body, data=None):
+
+    if not firebase_app:
+        print("Push notification skipped: Firebase is not initialized.")
+        return
+
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text("""
+                    SELECT token
+                    FROM device_tokens
+                    WHERE LOWER(email) = :email
+                    AND LOWER(role) = 'farmer'
+                """),
+                {"email": farmer_email.strip().lower()}
+            ).fetchall()
+
+        tokens = [row[0] for row in rows if row[0]]
+
+        if not tokens:
+            print("Push notification skipped: No registered farmer devices.")
+            return
+
+        # Firebase supports up to 500 tokens per multicast message.
+        for start in range(0, len(tokens), 500):
+            batch = tokens[start:start + 500]
+
+            message = messaging.MulticastMessage(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body
+                ),
+                data={
+                    str(key): str(value)
+                    for key, value in (data or {}).items()
+                },
+                tokens=batch
+            )
+
+            response = messaging.send_each_for_multicast(
+                message,
+                app=firebase_app
+            )
+
+            print(
+                f"Farmer push notifications: "
+                f"{response.success_count} sent, "
+                f"{response.failure_count} failed."
+            )
+
+    except Exception:
+        app.logger.exception("FARMER PUSH NOTIFICATION ERROR")
 
     
 
@@ -115,6 +200,78 @@ engine = create_engine(
 def home():
 
     return "FarmConnect AI Backend Running"
+
+# =========================================================
+# REGISTER FARMER DEVICE FOR PUSH NOTIFICATIONS
+# =========================================================
+
+@app.route("/register-device-token", methods=["POST"])
+def register_device_token():
+    import hashlib
+
+    data = request.get_json(silent=True) or {}
+
+    email = str(data.get("email", "")).strip().lower()
+    role = str(data.get("role", "")).strip().lower()
+    token = str(data.get("token", "")).strip()
+
+    if not email or not token or role != "farmer":
+        return jsonify({
+            "success": False,
+            "message": "Valid farmer email and device token are required."
+        }), 400
+
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    try:
+        with engine.begin() as conn:
+            farmer = conn.execute(
+                text("""
+                    SELECT id
+                    FROM users
+                    WHERE LOWER(email) = :email
+                    AND LOWER(role) = 'farmer'
+                """),
+                {"email": email}
+            ).fetchone()
+
+            if not farmer:
+                return jsonify({
+                    "success": False,
+                    "message": "Farmer account not found."
+                }), 404
+
+            conn.execute(
+                text("""
+                    INSERT INTO device_tokens
+                        (email, role, token, token_hash)
+                    VALUES
+                        (:email, 'farmer', :token, :token_hash)
+                    ON DUPLICATE KEY UPDATE
+                        email = VALUES(email),
+                        role = VALUES(role),
+                        token = VALUES(token),
+                        updated_at = CURRENT_TIMESTAMP
+                """),
+                {
+                    "email": email,
+                    "token": token,
+                    "token_hash": token_hash
+                }
+            )
+
+        return jsonify({
+            "success": True,
+            "message": "Farmer device registered for notifications."
+        }), 200
+
+    except Exception:
+        app.logger.exception("DEVICE TOKEN REGISTRATION ERROR")
+        return jsonify({
+            "success": False,
+            "message": "Unable to register device for notifications."
+        }), 500
+
 
 
 # =========================================================
@@ -1333,7 +1490,7 @@ def place_order():
                 order_id
             )
 
-        # 2. Notify the farmer
+                # 2. Notify the farmer
         try:
             notify_buyer(
                 buyer_email=actual_farmer_email,
@@ -1361,6 +1518,20 @@ def place_order():
                 "Farmer email notification failed for order %s",
                 order_id
             )
+        # 3. Send push notification to the farmer's device
+        send_farmer_push_notification(
+            farmer_email=actual_farmer_email,
+            title="New Order Received!",
+            body=(
+                f"You received an order for "
+                f"{quantity} kg of {actual_crop_name}."
+            ),
+            data={
+                "type": "new_order",
+                "order_id": order_id,
+                "crop_name": actual_crop_name
+            }
+        )
 
         return jsonify({
             "message": "Order placed successfully",
