@@ -47,13 +47,23 @@ else:
 def notify_buyer(buyer_email, subject, message):
     if not buyer_email:
         print("Notification skipped: buyer email is missing.")
-        return
+        return False
 
-    send_email(
-        to_email=buyer_email,
-        subject=subject,
-        body=message
-    )
+    try:
+        result = send_email(
+            to_email=buyer_email,
+            subject=subject,
+            body=message
+        )
+
+        if not result:
+            print(f"Email notification failed for: {buyer_email}")
+
+        return result
+
+    except Exception:
+        app.logger.exception("EMAIL NOTIFICATION ERROR")
+        return False
 
 
 
