@@ -88,7 +88,17 @@ PASSWORD_RESET_OTP_EXPIRY_SECONDS = 300  # 5 minutes
 pending_registrations = {}
 
 OTP_EXPIRY_SECONDS = 300  # OTP expires in 5 minutes
-CORS(app)
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": [
+                "https://farm-connect-ai-zeta.vercel.app"
+            ]
+        }
+    },
+    supports_credentials=True
+)
 
 # Temporary storage for login OTPs
 pending_login_otps = {}
