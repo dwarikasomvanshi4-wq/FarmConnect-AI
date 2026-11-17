@@ -1050,11 +1050,14 @@ const buyerName = sessionStorage.getItem("userName") || "Buyer";
   );
 
   const getImageUrl = (imageUrl) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    return `http://127.0.0.1:5000/${imageUrl.replace(/\\/g, "/")}`;
-  };
+  if (!imageUrl) return "";
+  if (imageUrl.startsWith("http")) return imageUrl;
 
+  const baseURL =
+    import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+
+  return `${baseURL}/${imageUrl.replace(/\\/g, "/")}`;
+};
   const renderCheckout = () => {
     if (checkoutStep === 0) return null;
 
