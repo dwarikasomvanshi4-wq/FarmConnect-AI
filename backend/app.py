@@ -347,9 +347,9 @@ def register():
             "attempts": 0
         }
 
-        message = Message(
+        email_sent = send_email(
+            to_email=email,
             subject="FarmConnect AI - Registration OTP",
-            recipients=[email],
             body=(
                 f"Hello {name},\n\n"
                 f"Your registration OTP is: {otp}\n\n"
@@ -357,8 +357,12 @@ def register():
             )
         )
 
-        mail.send(message)
+        if not email_sent:
+            pending_registrations.pop(email, None)
 
+            return jsonify({
+                "message": "Unable to send registration OTP. Please try again later."
+            }), 500
         return jsonify({
             "message": "OTP sent to your email. Verify it to complete registration.",
             "email": email
@@ -705,9 +709,9 @@ def request_login_otp():
             "role": user_role
         }
 
-        message = Message(
+        email_sent = send_email(
+            to_email=email,
             subject="FarmConnect AI - Login OTP",
-            recipients=[email],
             body=(
                 f"Hello {user_name},\n\n"
                 f"Your login OTP is: {otp}\n\n"
@@ -715,7 +719,12 @@ def request_login_otp():
             )
         )
 
-        mail.send(message)
+        if not email_sent:
+            pending_login_otps.pop(email, None)
+
+            return jsonify({
+                "message": "Unable to send login OTP. Please try again later."
+            }), 500
 
         return jsonify({
             "message": "Login OTP sent to your email",
