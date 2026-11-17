@@ -1,34 +1,64 @@
+
 import os
-import smtplib
-from email.message import EmailMessage
+import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))    
 
-SMTP_EMAIL = os.getenv("SMTP_EMAIL")
-SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL")
+BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "FarmConnect AI")
 
 
 def send_email(to_email, subject, body):
-    if not SMTP_EMAIL or not SMTP_APP_PASSWORD:
-        print("Email settings are missing from .env")
+    if not BREVO_API_KEY or not BREVO_SENDER_EMAIL:
+        print("Brevo email settings are missing.")
         return False
 
     try:
-        message = EmailMessage()
-        message["Subject"] = subject
-        message["From"] = SMTP_EMAIL
-        message["To"] = to_email
-        message.set_content(body)
+        url = "https://api.brevo.com/v3/smtp/email"
 
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=5) as server:  
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_APP_PASSWORD)
-            server.send_message(message)
+        headers = {
+            "accept": "application/json",
+            "api-key": BREVO_API_KEY,
+            "content-type": "application/json"
+        }
 
-        print("Email sent successfully.")
-        return True
+        payload = {
+            "sender": {
+                "name": BREVO_SENDER_NAME,
+                "email": BREVO_SENDER_EMAIL
+            },
+            "to": [
+                {
+                    "email": to_email
+                }
+            ],
+            "subject": subject,
+            "textContent": body
+        }
+
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=15
+        )
+
+        if response.status_code in (200, 201, 202):
+            print("Email sent successfully through Brevo.")
+            return True
+
+        print(
+            f"Brevo email failed: "
+            f"HTTP {response.status_code}: {response.text}"
+        )
+        return False
+
+    except requests.RequestException as e:
+        print(f"Brevo connection error: {type(e).__name__}: {e}")
+        return False
 
     except Exception as e:
-        print(f"Email failed: {type(e).__name__}: {e}")
+        print(f"Email error: {type(e).__name__}: {e}")
         return False
