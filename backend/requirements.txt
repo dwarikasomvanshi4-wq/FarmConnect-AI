@@ -8,4 +8,4 @@ python-dotenv
 gunicorn
 Werkzeug
 requests
-
+certifi

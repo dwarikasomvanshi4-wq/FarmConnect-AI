@@ -3,6 +3,7 @@ import secrets
 import time
 
 import requests
+import certifi
 from uuid import uuid4
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
@@ -89,10 +90,19 @@ database_url = URL.create(
     username=os.getenv("DB_USER"),
     password=os.getenv("DB_PASSWORD"),
     host=os.getenv("DB_HOST"),
+    port=4000,
     database=os.getenv("DB_NAME"),
 )
 
-engine = create_engine(database_url)
+engine = create_engine(
+    database_url,
+    connect_args={
+        "ssl_ca": certifi.where(),
+        "ssl_verify_cert": True,
+        "ssl_verify_identity": True,
+    },
+    pool_pre_ping=True,
+)
 
     
 
