@@ -1687,6 +1687,7 @@ def send_message():
 # GLOBAL CHAT - GET ALL CONVERSATIONS
 # =========================================================
 
+
 @app.route("/chat-conversations/<path:email>", methods=["GET"])
 def get_chat_conversations(email):
     email = email.strip().lower()
@@ -1733,13 +1734,7 @@ def get_chat_conversations(email):
 
                         m.created_at AS last_message_at,
 
-                        (
-                            SELECT COUNT(*)
-                            FROM messages unread
-                            WHERE unread.order_id = o.id
-                              AND LOWER(unread.receiver_email) = :email
-                              AND unread.is_read = 0
-                        ) AS unread_count
+                        COALESCE(unread.unread_count, 0) AS unread_count
 
                     FROM orders o
 
@@ -1749,12 +1744,28 @@ def get_chat_conversations(email):
                     LEFT JOIN users farmer
                         ON LOWER(farmer.email) = LOWER(o.farmer_email)
 
+                    INNER JOIN (
+                        SELECT
+                            order_id,
+                            MAX(id) AS latest_message_id
+                        FROM messages
+                        GROUP BY order_id
+                    ) latest
+                        ON latest.order_id = o.id
+
                     INNER JOIN messages m
-                        ON m.id = (
-                            SELECT MAX(m2.id)
-                            FROM messages m2
-                            WHERE m2.order_id = o.id
-                        )
+                        ON m.id = latest.latest_message_id
+
+                    LEFT JOIN (
+                        SELECT
+                            order_id,
+                            COUNT(*) AS unread_count
+                        FROM messages
+                        WHERE LOWER(receiver_email) = :email
+                          AND is_read = 0
+                        GROUP BY order_id
+                    ) unread
+                        ON unread.order_id = o.id
 
                     WHERE LOWER(o.buyer_email) = :email
                        OR LOWER(o.farmer_email) = :email
@@ -1769,6 +1780,7 @@ def get_chat_conversations(email):
     except Exception as e:
         print("Chat conversations error:", str(e))
         return jsonify({"error": "Unable to load conversations"}), 500
+
 
 # =========================================================
 # GLOBAL CHAT - MARK MESSAGES AS READ
