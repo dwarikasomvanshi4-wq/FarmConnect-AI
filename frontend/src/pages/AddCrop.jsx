@@ -20,6 +20,77 @@ function AddCrop() {
   const [voiceMessage, setVoiceMessage] = useState("");
   const [voiceMode, setVoiceMode] = useState("crop");
   const [pendingTranscript, setPendingTranscript] = useState("");
+  const [speaking, setSpeaking] = useState(false);
+
+  const languagePrompts = {
+    "en-IN": {
+      question: "Is this correct? Say yes to confirm or no to try again.",
+      yes: ["yes", "yeah", "correct", "right", "confirm"],
+      no: ["no", "wrong", "incorrect", "again", "retry"],
+      confirmed: "Your information has been confirmed.",
+      retry: "Okay. Please speak again.",
+    },
+    "hi-IN": {
+      question: "क्या यह सही है? पुष्टि करने के लिए हाँ बोलें या दोबारा बोलने के लिए नहीं बोलें।",
+      yes: ["हाँ", "हां", "सही", "जी", "ठीक"],
+      no: ["नहीं", "गलत", "दोबारा"],
+      confirmed: "आपकी जानकारी की पुष्टि हो गई है।",
+      retry: "ठीक है। कृपया दोबारा बोलें।",
+    },
+    "kn-IN": {
+      question: "ಇದು ಸರಿಯಾಗಿದೆಯೇ? ಖಚಿತಪಡಿಸಲು ಹೌದು ಎಂದು ಹೇಳಿ ಅಥವಾ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಲು ಇಲ್ಲ ಎಂದು ಹೇಳಿ.",
+      yes: ["ಹೌದು", "ಸರಿ", "ಹೌದು ಸರಿ"],
+      no: ["ಇಲ್ಲ", "ತಪ್ಪು", "ಮತ್ತೆ"],
+      confirmed: "ನಿಮ್ಮ ಮಾಹಿತಿ ದೃಢೀಕರಿಸಲಾಗಿದೆ.",
+      retry: "ಸರಿ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಮಾತನಾಡಿ.",
+    },
+  };
+
+  // Read text aloud
+  const speakText = (text, onFinished) => {
+    if (!("speechSynthesis" in window)) {
+      setVoiceMessage(
+        "Audio reading is not supported in this browser. Please use the confirmation buttons."
+      );
+      if (onFinished) onFinished();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = language;
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+
+    utterance.onstart = () => setSpeaking(true);
+
+    utterance.onend = () => {
+      setSpeaking(false);
+      if (onFinished) onFinished();
+    };
+
+    utterance.onerror = () => {
+      setSpeaking(false);
+      if (onFinished) onFinished();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Read recognized speech and ask for confirmation
+  const speakConfirmation = (recognizedText) => {
+    const prompt =
+      languagePrompts[language] || languagePrompts["en-IN"];
+
+    const fullMessage = `${recognizedText}. ${prompt.question}`;
+
+    setVoiceMessage(
+      "Please listen to the recognized speech and confirmation question."
+    );
+
+    speakText(fullMessage);
+  };
 
   // Capture farmer's current location
   const getCurrentLocation = () => {
@@ -60,16 +131,20 @@ function AddCrop() {
     );
   };
 
-  // Start voice recognition for crop details or description
+  // Start speech recognition
   const startVoiceEntry = (mode = "crop") => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setVoiceMessage(
-        "Voice recognition is not supported in this browser. Please try Google Chrome."
+        "Voice recognition is not supported. Please use Google Chrome."
       );
       return;
+    }
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
 
     const recognition = new SpeechRecognition();
@@ -86,8 +161,8 @@ function AddCrop() {
       setListening(true);
       setVoiceMessage(
         mode === "description"
-          ? "Listening... Speak your crop description."
-          : "Listening... Speak your crop name, quantity and price."
+          ? "Listening. Speak your crop description."
+          : "Listening. Speak your crop name, quantity and price."
       );
     };
 
@@ -102,8 +177,10 @@ function AddCrop() {
       setPendingTranscript(spokenText);
 
       setVoiceMessage(
-        "Speech recognized! Please review the text below and confirm whether it is correct."
+        "Speech recognized. Reading it aloud for your confirmation."
       );
+
+      speakConfirmation(spokenText);
     };
 
     recognition.onerror = (event) => {
@@ -111,7 +188,7 @@ function AddCrop() {
         event.error === "not-allowed"
           ? "Microphone access was denied. Allow microphone access in your browser settings."
           : event.error === "no-speech"
-          ? "No speech detected. Please try speaking again."
+          ? "No speech detected. Please try again."
           : "Could not recognize your speech. Please try again."
       );
 
@@ -130,7 +207,7 @@ function AddCrop() {
     }
   };
 
-  // Identify crop category
+  // Identify common English crop categories
   const getCropCategory = (name) => {
     const cropCategoryMap = {
       tomato: "Vegetables",
@@ -166,7 +243,7 @@ function AddCrop() {
     return cropCategoryMap[name.toLowerCase()] || "";
   };
 
-  // Confirm the recognized speech
+  // Apply confirmed speech to the form
   const confirmVoiceInput = () => {
     const confirmedText = pendingTranscript.trim();
 
@@ -175,71 +252,143 @@ function AddCrop() {
       return;
     }
 
-    // Description confirmation
     if (voiceMode === "description") {
       setDescription(confirmedText);
-      setVoiceMessage("Description added successfully! You can edit it if needed.");
-      setPendingTranscript("");
+      setVoiceMessage("Description confirmed and added to the description field.");
+    } else {
+      const numbers = confirmedText.match(/\d+(?:\.\d+)?/g) || [];
+
+      const cleanedName = confirmedText
+        .toLowerCase()
+        .replace(/^(add|list|sell|create|crop|please)\s+/i, "")
+        .replace(/\b\d+(?:\.\d+)?\b/g, " ")
+        .replace(
+          /\b(kg|kgs|kilogram|kilograms|kilo|kilos|rupees|rupee|rs|inr|per|each|price|at|quantity|of|for|the)\b/gi,
+          " "
+        )
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const cropNameDetected = cleanedName.split(" ")[0] || "";
+
+      if (cropNameDetected) {
+        const formattedName =
+          cropNameDetected.charAt(0).toUpperCase() +
+          cropNameDetected.slice(1);
+
+        setCropName(formattedName);
+
+        const detectedCategory = getCropCategory(cropNameDetected);
+
+        if (detectedCategory) {
+          setCategory(detectedCategory);
+        }
+      }
+
+      if (numbers.length >= 1) {
+        setQuantity(numbers[0]);
+      }
+
+      if (numbers.length >= 2) {
+        setPrice(numbers[1]);
+      }
+
+      setVoiceMessage(
+        "Crop details confirmed. Review the fields and fill in any missing information."
+      );
+    }
+
+    setPendingTranscript("");
+
+    const prompt =
+      languagePrompts[language] || languagePrompts["en-IN"];
+
+    speakText(prompt.confirmed);
+  };
+
+  // Reject speech and record again
+  const rejectVoiceInput = () => {
+    setPendingTranscript("");
+
+    const prompt =
+      languagePrompts[language] || languagePrompts["en-IN"];
+
+    setVoiceMessage("Please speak again.");
+    speakText(prompt.retry);
+  };
+
+  // Listen for spoken Yes or No
+  const startVoiceConfirmation = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceMessage(
+        "Voice recognition is not supported. Please use the Yes or No buttons."
+      );
       return;
     }
 
-    // Crop details confirmation
-    const numbers = confirmedText.match(/\d+(?:\.\d+)?/g) || [];
+    const recognition = new SpeechRecognition();
 
-    let cleanedName = confirmedText
-      .toLowerCase()
-      .replace(/^(add|list|sell|create|crop|please)\s+/i, "")
-      .replace(/\b\d+(?:\.\d+)?\b/g, " ")
-      .replace(
-        /\b(kg|kgs|kilogram|kilograms|kilo|kilos|rupees|rupee|rs|inr|per|each|price|at|quantity|of|for|the)\b/gi,
-        " "
-      )
-      .replace(/\s+/g, " ")
-      .trim();
+    recognition.lang = language;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-    const cropNameDetected = cleanedName.split(" ")[0] || "";
+    recognition.onstart = () => {
+      setListening(true);
+      setVoiceMessage("Listening for your Yes or No answer...");
+    };
 
-    if (cropNameDetected) {
-      const formattedName =
-        cropNameDetected.charAt(0).toUpperCase() +
-        cropNameDetected.slice(1);
+    recognition.onresult = (event) => {
+      const answer = event.results[0][0].transcript
+        .trim()
+        .toLowerCase();
 
-      setCropName(formattedName);
+      const prompt =
+        languagePrompts[language] || languagePrompts["en-IN"];
 
-      const detectedCategory = getCropCategory(cropNameDetected);
+      const isYes = prompt.yes.some((word) => answer.includes(word));
+      const isNo = prompt.no.some((word) => answer.includes(word));
 
-      if (detectedCategory) {
-        setCategory(detectedCategory);
+      if (isYes) {
+        confirmVoiceInput();
+      } else if (isNo) {
+        rejectVoiceInput();
+      } else {
+        setVoiceMessage(
+          `I heard "${answer}". Please say Yes or No, or use the buttons.`
+        );
+        speakText(
+          language === "hi-IN"
+            ? "कृपया हाँ या नहीं बोलें।"
+            : language === "kn-IN"
+            ? "ದಯವಿಟ್ಟು ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ."
+            : "Please say yes or no."
+        );
       }
-    }
+    };
 
-    if (numbers.length >= 1) {
-      setQuantity(numbers[0]);
-    }
-
-    if (numbers.length >= 2) {
-      setPrice(numbers[1]);
-    }
-
-    if (cropNameDetected && numbers.length >= 2) {
+    recognition.onerror = (event) => {
       setVoiceMessage(
-        "Crop details confirmed and filled! Review the fields before saving."
+        event.error === "not-allowed"
+          ? "Microphone access was denied."
+          : "Could not hear your answer. Please try again."
       );
-    } else {
-      setVoiceMessage(
-        "Recognized details added. Please manually fill in any missing information."
-      );
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    try {
+      recognition.start();
+    } catch (error) {
+      setListening(false);
+      setVoiceMessage("Could not start the microphone. Please try again.");
     }
-
-    setPendingTranscript("");
-  };
-
-  // Reject recognized speech and try again
-  const rejectVoiceInput = () => {
-    setPendingTranscript("");
-    setVoiceMessage(
-      "No problem! Press the microphone button and speak again."
-    );
   };
 
   // Save crop
@@ -294,10 +443,8 @@ function AddCrop() {
       setPrice("");
       setDescription("");
       setImage(null);
-
       setPendingTranscript("");
       setVoiceMessage("");
-
       setLatitude(null);
       setLongitude(null);
       setLocationMessage("");
@@ -327,8 +474,8 @@ function AddCrop() {
           </h2>
 
           <p className="text-sm text-gray-600 mb-4">
-            Speak your crop details or description. Review the recognized
-            speech and confirm before applying it.
+            Speak your crop details or description. FarmConnect AI will read
+            the recognized words aloud and ask you to confirm.
           </p>
 
           <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -339,7 +486,6 @@ function AddCrop() {
             value={language}
             onChange={(event) => setLanguage(event.target.value)}
             className={`${inputClass} mb-4 bg-white`}
-            aria-label="Voice recognition language"
           >
             <option value="en-IN">English</option>
             <option value="hi-IN">Hindi</option>
@@ -349,12 +495,8 @@ function AddCrop() {
           <button
             type="button"
             onClick={() => startVoiceEntry("crop")}
-            disabled={listening}
-            className={`w-full text-white py-4 rounded-xl font-semibold ${
-              listening
-                ? "bg-orange-500 cursor-wait"
-                : "bg-green-700 hover:bg-green-800"
-            }`}
+            disabled={listening || speaking}
+            className="w-full text-white py-4 rounded-xl font-semibold bg-green-700 hover:bg-green-800 disabled:opacity-60"
           >
             {listening && voiceMode === "crop"
               ? "🎙️ Listening..."
@@ -367,7 +509,13 @@ function AddCrop() {
             </p>
           )}
 
-          {/* Speech confirmation */}
+          {speaking && (
+            <p className="mt-2 text-sm text-blue-700">
+              🔊 FarmConnect AI is speaking...
+            </p>
+          )}
+
+          {/* Confirmation area */}
           {pendingTranscript && (
             <div className="mt-4 rounded-xl border border-green-200 bg-white p-4">
               <h3 className="font-bold text-gray-800 mb-2">
@@ -387,14 +535,25 @@ function AddCrop() {
               />
 
               <p className="text-xs text-gray-500 mt-2">
-                Check the text carefully. You can correct it before confirming.
+                Listen carefully. You can edit the recognized words before
+                confirming.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <button
+                type="button"
+                onClick={startVoiceConfirmation}
+                disabled={listening || speaking}
+                className="w-full mt-3 rounded-xl bg-blue-700 px-4 py-3 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+              >
+                🎤 Answer Yes or No by Voice
+              </button>
+
+              <div className="flex flex-col sm:flex-row gap-3 mt-3">
                 <button
                   type="button"
                   onClick={confirmVoiceInput}
-                  className="flex-1 rounded-xl bg-green-700 px-4 py-3 font-semibold text-white hover:bg-green-800"
+                  disabled={listening}
+                  className="flex-1 rounded-xl bg-green-700 px-4 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-60"
                 >
                   ✓ Yes, Correct
                 </button>
@@ -402,7 +561,8 @@ function AddCrop() {
                 <button
                   type="button"
                   onClick={rejectVoiceInput}
-                  className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-700"
+                  disabled={listening}
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-60"
                 >
                   ✕ No, Try Again
                 </button>
@@ -493,26 +653,21 @@ function AddCrop() {
             className={inputClass}
           />
 
-          {/* Description with voice input */}
+          {/* Description with separate voice input */}
           <div className="rounded-xl border border-green-200 bg-green-50 p-4">
             <label className="block text-lg font-semibold text-green-800 mb-3">
               📝 Crop Description
             </label>
 
             <p className="text-sm text-gray-600 mb-3">
-              Type your description or use the microphone to speak it in
-              English, Hindi or Kannada.
+              Type your description or speak it in English, Hindi or Kannada.
             </p>
 
             <button
               type="button"
               onClick={() => startVoiceEntry("description")}
-              disabled={listening}
-              className={`w-full mb-3 rounded-xl py-3 font-semibold text-white ${
-                listening && voiceMode === "description"
-                  ? "bg-orange-500 cursor-wait"
-                  : "bg-green-700 hover:bg-green-800"
-              }`}
+              disabled={listening || speaking}
+              className="w-full mb-3 rounded-xl py-3 font-semibold text-white bg-green-700 hover:bg-green-800 disabled:opacity-60"
             >
               {listening && voiceMode === "description"
                 ? "🎙️ Listening to Description..."
