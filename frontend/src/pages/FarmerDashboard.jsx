@@ -1237,8 +1237,8 @@ const filteredDeliveredOrders = useMemo(() => {
 
       <main className="ml-0 min-h-screen lg:ml-72">
         {/* HEADER */}
-        <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-green-100 bg-white/95 px-5 py-5 shadow-sm backdrop-blur md:px-8">
-          <div>
+        <header className="sticky top-0 z-30 flex flex-col gap-4 border-b border-green-100 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6 md:px-8 lg:pl-8">
+          <div className="min-w-0 pl-14 sm:pl-0">
             <p className="text-sm font-semibold uppercase tracking-widest text-emerald-700">
               FARMCONNECT AI
             </p>
@@ -1248,7 +1248,7 @@ const filteredDeliveredOrders = useMemo(() => {
             <p className="mt-1 text-gray-500">{ui.subtitle}</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
             <div className="flex items-center gap-2 rounded-xl bg-amber-50 px-4 py-3 text-amber-700">
               <Sun size={20} />
               <span className="font-semibold">
@@ -1272,12 +1272,11 @@ const filteredDeliveredOrders = useMemo(() => {
                         <button
               onClick={handleEnableNotifications}
               disabled={notificationLoading || notificationsEnabled}
-              className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                notificationsEnabled
-                  ? "bg-green-100 text-green-800"
-                  : "bg-emerald-700 text-white hover:bg-emerald-800"
-              } disabled:cursor-not-allowed`}
-              title="Enable order notifications"
+              className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-semibold transition sm:flex-none sm:px-4 sm:text-sm ${
+  notificationsEnabled
+    ? "bg-green-100 text-green-800"
+    : "bg-emerald-700 text-white hover:bg-emerald-800"
+} disabled:cursor-not-allowed`}
             >
               <Bell size={20} />
               <span>
@@ -1322,7 +1321,7 @@ const filteredDeliveredOrders = useMemo(() => {
           )}
 
           {/* HERO AND VOICE ASSISTANT */}
-          <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-green-950 via-green-800 to-emerald-600 p-6 text-white shadow-xl md:p-9">
+          <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-green-950 via-green-800 to-emerald-600 p-4 text-white shadow-xl md:p-9">
             <div className="flex flex-col justify-between gap-7 xl:flex-row xl:items-center">
               <div className="max-w-2xl">
                 <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm">
