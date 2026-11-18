@@ -31,14 +31,16 @@ function AddCrop() {
       retry: "Okay. Please speak again.",
     },
     "hi-IN": {
-      question: "क्या यह सही है? पुष्टि करने के लिए हाँ बोलें या दोबारा बोलने के लिए नहीं बोलें।",
+      question:
+        "क्या यह सही है? पुष्टि करने के लिए हाँ बोलें या दोबारा बोलने के लिए नहीं बोलें।",
       yes: ["हाँ", "हां", "सही", "जी", "ठीक"],
       no: ["नहीं", "गलत", "दोबारा"],
       confirmed: "आपकी जानकारी की पुष्टि हो गई है।",
       retry: "ठीक है। कृपया दोबारा बोलें।",
     },
     "kn-IN": {
-      question: "ಇದು ಸರಿಯಾಗಿದೆಯೇ? ಖಚಿತಪಡಿಸಲು ಹೌದು ಎಂದು ಹೇಳಿ ಅಥವಾ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಲು ಇಲ್ಲ ಎಂದು ಹೇಳಿ.",
+      question:
+        "ಇದು ಸರಿಯಾಗಿದೆಯೇ? ಖಚಿತಪಡಿಸಲು ಹೌದು ಎಂದು ಹೇಳಿ ಅಥವಾ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಲು ಇಲ್ಲ ಎಂದು ಹೇಳಿ.",
       yes: ["ಹೌದು", "ಸರಿ", "ಹೌದು ಸರಿ"],
       no: ["ಇಲ್ಲ", "ತಪ್ಪು", "ಮತ್ತೆ"],
       confirmed: "ನಿಮ್ಮ ಮಾಹಿತಿ ದೃಢೀಕರಿಸಲಾಗಿದೆ.",
@@ -52,18 +54,22 @@ function AddCrop() {
       setVoiceMessage(
         "Audio reading is not supported in this browser. Please use the confirmation buttons."
       );
+
       if (onFinished) onFinished();
       return;
     }
 
     window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = language;
     utterance.rate = 0.9;
     utterance.pitch = 1;
 
-    utterance.onstart = () => setSpeaking(true);
+    utterance.onstart = () => {
+      setSpeaking(true);
+    };
 
     utterance.onend = () => {
       setSpeaking(false);
@@ -131,7 +137,7 @@ function AddCrop() {
     );
   };
 
-  // Start speech recognition
+  // Start speech recognition for crop details or description
   const startVoiceEntry = (mode = "crop") => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -149,6 +155,8 @@ function AddCrop() {
 
     const recognition = new SpeechRecognition();
 
+    let recognizedText = "";
+
     setVoiceMode(mode);
     setPendingTranscript("");
 
@@ -159,6 +167,7 @@ function AddCrop() {
 
     recognition.onstart = () => {
       setListening(true);
+
       setVoiceMessage(
         mode === "description"
           ? "Listening. Speak your crop description."
@@ -167,20 +176,18 @@ function AddCrop() {
     };
 
     recognition.onresult = (event) => {
-      const spokenText = event.results[0][0].transcript.trim();
+      recognizedText = event.results[0][0].transcript.trim();
 
-      if (!spokenText) {
+      if (!recognizedText) {
         setVoiceMessage("No speech detected. Please try again.");
         return;
       }
 
-      setPendingTranscript(spokenText);
+      setPendingTranscript(recognizedText);
 
       setVoiceMessage(
-        "Speech recognized. Reading it aloud for your confirmation."
+        "Speech recognized. Please listen to the confirmation."
       );
-
-      speakConfirmation(spokenText);
     };
 
     recognition.onerror = (event) => {
@@ -195,8 +202,15 @@ function AddCrop() {
       setListening(false);
     };
 
+    // IMPORTANT: Wait until microphone recognition ends before speaking
     recognition.onend = () => {
       setListening(false);
+
+      if (recognizedText) {
+        setTimeout(() => {
+          speakConfirmation(recognizedText);
+        }, 350);
+      }
     };
 
     try {
@@ -254,7 +268,10 @@ function AddCrop() {
 
     if (voiceMode === "description") {
       setDescription(confirmedText);
-      setVoiceMessage("Description confirmed and added to the description field.");
+
+      setVoiceMessage(
+        "Description confirmed and added to the description field."
+      );
     } else {
       const numbers = confirmedText.match(/\d+(?:\.\d+)?/g) || [];
 
@@ -331,6 +348,8 @@ function AddCrop() {
 
     const recognition = new SpeechRecognition();
 
+    let afterRecognition = null;
+
     recognition.lang = language;
     recognition.continuous = false;
     recognition.interimResults = false;
@@ -353,20 +372,25 @@ function AddCrop() {
       const isNo = prompt.no.some((word) => answer.includes(word));
 
       if (isYes) {
-        confirmVoiceInput();
+        setVoiceMessage("You said yes. Confirming your information...");
+        afterRecognition = () => confirmVoiceInput();
       } else if (isNo) {
-        rejectVoiceInput();
+        setVoiceMessage("You said no. Please try again.");
+        afterRecognition = () => rejectVoiceInput();
       } else {
         setVoiceMessage(
           `I heard "${answer}". Please say Yes or No, or use the buttons.`
         );
-        speakText(
-          language === "hi-IN"
-            ? "कृपया हाँ या नहीं बोलें।"
-            : language === "kn-IN"
-            ? "ದಯವಿಟ್ಟು ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ."
-            : "Please say yes or no."
-        );
+
+        afterRecognition = () => {
+          speakText(
+            language === "hi-IN"
+              ? "कृपया हाँ या नहीं बोलें।"
+              : language === "kn-IN"
+              ? "ದಯವಿಟ್ಟು ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ."
+              : "Please say yes or no."
+          );
+        };
       }
     };
 
@@ -376,11 +400,19 @@ function AddCrop() {
           ? "Microphone access was denied."
           : "Could not hear your answer. Please try again."
       );
+
       setListening(false);
     };
 
+    // Process the spoken answer only after recognition has stopped
     recognition.onend = () => {
       setListening(false);
+
+      if (afterRecognition) {
+        setTimeout(() => {
+          afterRecognition();
+        }, 350);
+      }
     };
 
     try {
@@ -552,7 +584,7 @@ function AddCrop() {
                 <button
                   type="button"
                   onClick={confirmVoiceInput}
-                  disabled={listening}
+                  disabled={listening || speaking}
                   className="flex-1 rounded-xl bg-green-700 px-4 py-3 font-semibold text-white hover:bg-green-800 disabled:opacity-60"
                 >
                   ✓ Yes, Correct
@@ -561,7 +593,7 @@ function AddCrop() {
                 <button
                   type="button"
                   onClick={rejectVoiceInput}
-                  disabled={listening}
+                  disabled={listening || speaking}
                   className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-60"
                 >
                   ✕ No, Try Again
