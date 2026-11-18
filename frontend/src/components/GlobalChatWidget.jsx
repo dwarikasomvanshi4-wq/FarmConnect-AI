@@ -275,7 +275,7 @@ function GlobalChatWidget() {
           setIsOpen((current) => !current);
           setToast("");
         }}
-        className="fixed bottom-5 right-5 z-[98] flex h-14 w-14 items-center justify-center rounded-full bg-green-700 text-white shadow-xl transition hover:scale-105 hover:bg-green-800"
+        className="fixed bottom-3 right-3 z-[98] flex h-12 w-12 items-center justify-center rounded-full bg-green-700 text-white shadow-xl transition hover:scale-105 hover:bg-green-800 sm:bottom-5 sm:right-5 sm:h-14 sm:w-14"
         aria-label="Open messages"
         title="Messages"
       >
