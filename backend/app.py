@@ -2720,7 +2720,57 @@ def crop_price_trends():
         return jsonify({
             "error": "Unable to fetch crop price trends"
         }), 500
+@app.route("/support", methods=["POST"])
+def submit_support_request():
+    try:
+        data = request.get_json()
 
+        # Get form data
+        name = data.get("name", "").strip()
+        email = data.get("email", "").strip()
+        user_type = data.get("userType", "").strip()
+        category = data.get("category", "").strip()
+        description = data.get("description", "").strip()
+
+        # Validate required fields
+        if not all([name, email, user_type, category, description]):
+            return jsonify({
+                "success": False,
+                "message": "All fields are required."
+            }), 400
+
+        # Save support request in database
+        with engine.begin() as conn:
+            result = conn.execute(
+                text("""
+                    INSERT INTO support_requests
+                    (name, email, user_type, category, description)
+                    VALUES (:name, :email, :user_type, :category, :description)
+                """),
+                {
+                    "name": name,
+                    "email": email,
+                    "user_type": user_type,
+                    "category": category,
+                    "description": description
+                }
+            )
+
+            request_id = result.lastrowid
+
+        return jsonify({
+            "success": True,
+            "message": "Your support request has been submitted successfully!",
+            "request_id": request_id
+        }), 201
+
+    except Exception as e:
+        print("Support request error:", e)
+
+        return jsonify({
+            "success": False,
+            "message": "Unable to submit your request. Please try again later."
+        }), 500
 
 # =========================================================
 # RUN SERVER

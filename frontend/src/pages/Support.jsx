@@ -1,7 +1,9 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import api from "../services/api";
 
 function Support() {
   const navigate = useNavigate();
@@ -15,6 +17,8 @@ function Support() {
   });
 
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -23,13 +27,43 @@ function Support() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Backend submission will be connected in the next step.
-    setMessage(
-      "Your support form is ready. Submission will be enabled soon."
-    );
+    setLoading(true);
+    setMessage("");
+    setSuccess(false);
+
+    try {
+      const response = await api.post("/support", formData);
+
+      setSuccess(true);
+
+      setMessage(
+        response.data.message ||
+          "Your support request has been submitted successfully!"
+      );
+
+      // Clear the form after successful submission
+      setFormData({
+        name: "",
+        email: "",
+        userType: "",
+        category: "",
+        description: "",
+      });
+    } catch (error) {
+      console.error("Support submission error:", error);
+
+      setSuccess(false);
+
+      setMessage(
+        error.response?.data?.message ||
+          "Unable to submit your support request. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -74,7 +108,8 @@ function Support() {
                 onChange={handleChange}
                 placeholder="Enter your name"
                 required
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
               />
             </div>
 
@@ -91,7 +126,8 @@ function Support() {
                 onChange={handleChange}
                 placeholder="Enter your email"
                 required
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
               />
             </div>
 
@@ -106,7 +142,8 @@ function Support() {
                 value={formData.userType}
                 onChange={handleChange}
                 required
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
               >
                 <option value="">Select user type</option>
                 <option value="Farmer">Farmer</option>
@@ -126,16 +163,31 @@ function Support() {
                 value={formData.category}
                 onChange={handleChange}
                 required
-                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
               >
                 <option value="">Select an issue</option>
-                <option value="Login/Register">Login / Registration Issues</option>
-                <option value="Crop Listing">Crop Listing Issues</option>
-                <option value="Payment">Payment Problems</option>
-                <option value="Orders">Order Related Issues</option>
-                <option value="Technical">Technical Issues</option>
-                <option value="Feedback">Suggestions / Feedback</option>
-                <option value="Other">Other</option>
+                <option value="Login/Register">
+                  Login / Registration Issues
+                </option>
+                <option value="Crop Listing">
+                  Crop Listing Issues
+                </option>
+                <option value="Payment">
+                  Payment Problems
+                </option>
+                <option value="Orders">
+                  Order Related Issues
+                </option>
+                <option value="Technical">
+                  Technical Issues
+                </option>
+                <option value="Feedback">
+                  Suggestions / Feedback
+                </option>
+                <option value="Other">
+                  Other
+                </option>
               </select>
             </div>
 
@@ -152,13 +204,20 @@ function Support() {
                 placeholder="Please explain your problem in detail..."
                 rows={5}
                 required
-                className="w-full resize-y rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                disabled={loading}
+                className="w-full resize-y rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
               />
             </div>
 
-            {/* Message */}
+            {/* Status Message */}
             {message && (
-              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+              <div
+                className={`rounded-lg border p-4 text-sm ${
+                  success
+                    ? "border-green-200 bg-green-50 text-green-800"
+                    : "border-red-200 bg-red-50 text-red-800"
+                }`}
+              >
                 {message}
               </div>
             )}
@@ -166,9 +225,12 @@ function Support() {
             {/* Submit */}
             <button
               type="submit"
-              className="w-full rounded-lg bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700"
+              disabled={loading}
+              className="w-full rounded-lg bg-green-600 py-3 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
             >
-              Submit Support Request
+              {loading
+                ? "Submitting..."
+                : "Submit Support Request"}
             </button>
 
           </form>
