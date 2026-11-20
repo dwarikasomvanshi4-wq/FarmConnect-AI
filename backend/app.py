@@ -2720,12 +2720,12 @@ def crop_price_trends():
         return jsonify({
             "error": "Unable to fetch crop price trends"
         }), 500
+
 @app.route("/support", methods=["POST"])
 def submit_support_request():
     try:
         data = request.get_json()
 
-        # Get form data
         name = data.get("name", "").strip()
         email = data.get("email", "").strip()
         user_type = data.get("userType", "").strip()
@@ -2739,7 +2739,7 @@ def submit_support_request():
                 "message": "All fields are required."
             }), 400
 
-        # Save support request in database
+        # Save request to database
         with engine.begin() as conn:
             result = conn.execute(
                 text("""
@@ -2758,6 +2758,51 @@ def submit_support_request():
 
             request_id = result.lastrowid
 
+        # Prepare admin email notification
+        support_email = os.getenv("SUPPORT_EMAIL")
+
+        if support_email:
+            subject = f"New Support Request #{request_id} - FarmConnect AI"
+
+            body = f"""
+New Support Request Received
+===========================
+
+Request ID: {request_id}
+
+User Details:
+-------------
+Name: {name}
+Email: {email}
+User Type: {user_type}
+
+Issue Details:
+--------------
+Category: {category}
+
+Description:
+{description}
+
+Status: Pending
+
+Submitted through FarmConnect AI Support Center.
+"""
+
+            email_sent = send_email(
+                support_email,
+                subject,
+                body
+            )
+
+            if email_sent:
+                print(f"Support notification sent for request #{request_id}")
+            else:
+                print(f"Support notification failed for request #{request_id}")
+
+        else:
+            print("SUPPORT_EMAIL environment variable is missing.")
+
+        # Return success even if notification email fails
         return jsonify({
             "success": True,
             "message": "Your support request has been submitted successfully!",
