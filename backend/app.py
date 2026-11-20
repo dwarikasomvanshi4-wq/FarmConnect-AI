@@ -2927,7 +2927,6 @@ def get_support_requests():
 def update_support_status(request_id):
     try:
         data = request.get_json(silent=True) or {}
-
         new_status = data.get("status", "").strip()
 
         allowed_statuses = [
@@ -2942,9 +2941,30 @@ def update_support_status(request_id):
                 "message": "Invalid support status"
             }), 400
 
-        with engine.begin() as conn:
+        # Fetch support request details
+        with engine.connect() as conn:
+            request_data = conn.execute(
+                text("""
+                    SELECT id, name, email, category, status
+                    FROM support_requests
+                    WHERE id = :id
+                """),
+                {"id": request_id}
+            ).fetchone()
 
-            result = conn.execute(
+        if not request_data:
+            return jsonify({
+                "success": False,
+                "message": "Support request not found"
+            }), 404
+
+        request_data = dict(request_data._mapping)
+
+        old_status = request_data["status"]
+
+        # Update status in database
+        with engine.begin() as conn:
+            conn.execute(
                 text("""
                     UPDATE support_requests
                     SET status = :status
@@ -2956,11 +2976,58 @@ def update_support_status(request_id):
                 }
             )
 
-            if result.rowcount == 0:
-                return jsonify({
-                    "success": False,
-                    "message": "Support request not found"
-                }), 404
+        # Send email notification to the user
+        if old_status != new_status:
+
+            status_messages = {
+                "Pending": (
+                    "Your support request is currently pending "
+                    "and will be reviewed shortly."
+                ),
+                "In Progress": (
+                    "Our team is currently working on your "
+                    "support request."
+                ),
+                "Resolved": (
+                    "Your support request has been resolved. "
+                    "Please contact us again if you need further assistance."
+                )
+            }
+
+            email_subject = (
+                f"FarmConnect AI - Support Request #{request_id} Update"
+            )
+
+            email_body = f"""
+Hello {request_data['name']},
+
+Your support request status has been updated.
+
+Request ID: #{request_id}
+Category: {request_data['category']}
+Previous Status: {old_status}
+New Status: {new_status}
+
+{status_messages[new_status]}
+
+Thank you for contacting FarmConnect AI Support.
+
+Best regards,
+FarmConnect AI Support Team
+"""
+
+            email_sent = send_email(
+                to_email=request_data["email"],
+                subject=email_subject,
+                body=email_body
+            )
+
+            if not email_sent:
+                app.logger.error(
+                    "Support status notification email failed "
+                    "for request ID %s",
+                    request_id
+                )
 
         return jsonify({
             "success": True,
