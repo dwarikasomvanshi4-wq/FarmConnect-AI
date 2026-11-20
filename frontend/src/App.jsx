@@ -18,6 +18,7 @@ import Earnings from "./pages/Earnings";
 import Voice from "./pages/Voice";
 import BuyerChat from "./pages/BuyerChat";
 import FarmerChat from "./pages/FarmerChat";
+import Support from "./pages/Support";
 
 import GlobalChatWidget from "./components/GlobalChatWidget";
 import { LanguageProvider } from "./i18n/LanguageContext";
@@ -45,7 +46,8 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/earnings" element={<Earnings />} />
         <Route path="/voice" element={<Voice />} />
-
+        <Route path="/support" element={<Support />} />
+        <Route path="/support" element={<Support />} />
         {/* Chat routes */}
         <Route path="/buyer-chat/:orderId" element={<BuyerChat />} />
         <Route path="/farmer-chat/:orderId" element={<FarmerChat />} />
