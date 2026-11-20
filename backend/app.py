@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"), override=True)
 # =========================================================
@@ -70,7 +71,66 @@ def notify_buyer(buyer_email, subject, message):
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 load_dotenv()
+# =========================================================
+# AUTHENTICATION TOKEN CONFIGURATION
+# =========================================================
 
+token_serializer = URLSafeTimedSerializer(
+    app.config["SECRET_KEY"],
+    salt="farmconnect-auth-token"
+)
+
+TOKEN_EXPIRY_SECONDS = 8 * 60 * 60  # 8 hours
+# =========================================================
+# AUTHENTICATION TOKEN VERIFICATION
+# =========================================================
+
+def verify_auth_token(token):
+    try:
+        data = token_serializer.loads(
+            token,
+            max_age=TOKEN_EXPIRY_SECONDS
+        )
+
+        return data
+
+    except (BadSignature, SignatureExpired):
+        return None
+# =========================================================
+# ADMIN AUTHENTICATION DECORATOR
+# =========================================================
+
+from functools import wraps
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+
+        auth_header = request.headers.get("Authorization", "")
+
+        if not auth_header.startswith("Bearer "):
+            return jsonify({
+                "message": "Authentication token required"
+            }), 401
+
+        token = auth_header.split(" ", 1)[1]
+
+        user_data = verify_auth_token(token)
+
+        if not user_data:
+            return jsonify({
+                "message": "Invalid or expired token"
+            }), 401
+
+        if user_data.get("role", "").lower() != "admin":
+            return jsonify({
+                "message": "Admin access required"
+            }), 403
+
+        return f(*args, **kwargs)
+
+    return decorated_function
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 587
 app.config["MAIL_USE_TLS"] = True
@@ -564,6 +624,10 @@ def update_profile(email):
 # =========================================================
 
 
+# =========================================================
+# LOGIN
+# =========================================================
+
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json(silent=True) or {}
@@ -623,12 +687,10 @@ def login():
                     "message": "Invalid Email or Password"
                 }), 401
 
-            return jsonify({
-                "message": "Login Successful",
-                "role": user.role,
-                "email": user.email,
-                "name": user.name
-            }), 200
+        return jsonify({
+            "message": "Password verified. OTP login required.",
+            "email": email
+        }), 200
 
     except Exception:
         app.logger.exception("LOGIN ERROR")
@@ -782,13 +844,19 @@ def verify_login_otp():
 
     pending_login_otps.pop(email, None)
 
+    # Generate secure authentication token
+    token = token_serializer.dumps({
+        "email": email,
+        "role": pending["role"]
+    })
+
     return jsonify({
         "message": "Login successful",
         "email": email,
         "name": pending["name"],
-        "role": pending["role"]
+        "role": pending["role"],
+        "token": token
     }), 200
-
 # =========================================================
 # ADD CROP
 # =========================================================
@@ -2816,7 +2884,97 @@ Submitted through FarmConnect AI Support Center.
             "success": False,
             "message": "Unable to submit your request. Please try again later."
         }), 500
+# =========================================================
+# ADMIN - GET ALL SUPPORT REQUESTS
+# =========================================================
 
+@app.route("/admin/support-requests", methods=["GET"])
+@admin_required
+def get_support_requests():
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT *
+                    FROM support_requests
+                    ORDER BY created_at DESC
+                """)
+            )
+
+            requests_list = [
+                dict(row._mapping)
+                for row in result.fetchall()
+            ]
+
+        return jsonify({
+            "success": True,
+            "support_requests": requests_list
+        }), 200
+
+    except Exception as e:
+        app.logger.exception("ADMIN SUPPORT REQUESTS ERROR")
+
+        return jsonify({
+            "success": False,
+            "message": "Unable to fetch support requests"
+        }), 500
+# =========================================================
+# ADMIN - UPDATE SUPPORT REQUEST STATUS
+# =========================================================
+
+@app.route("/admin/support-requests/<int:request_id>/status", methods=["PATCH"])
+@admin_required
+def update_support_status(request_id):
+    try:
+        data = request.get_json(silent=True) or {}
+
+        new_status = data.get("status", "").strip()
+
+        allowed_statuses = [
+            "Pending",
+            "In Progress",
+            "Resolved"
+        ]
+
+        if new_status not in allowed_statuses:
+            return jsonify({
+                "success": False,
+                "message": "Invalid support status"
+            }), 400
+
+        with engine.begin() as conn:
+
+            result = conn.execute(
+                text("""
+                    UPDATE support_requests
+                    SET status = :status
+                    WHERE id = :id
+                """),
+                {
+                    "status": new_status,
+                    "id": request_id
+                }
+            )
+
+            if result.rowcount == 0:
+                return jsonify({
+                    "success": False,
+                    "message": "Support request not found"
+                }), 404
+
+        return jsonify({
+            "success": True,
+            "message": "Support request status updated successfully",
+            "status": new_status
+        }), 200
+
+    except Exception:
+        app.logger.exception("UPDATE SUPPORT STATUS ERROR")
+
+        return jsonify({
+            "success": False,
+            "message": "Unable to update support request status"
+        }), 500
 # =========================================================
 # RUN SERVER
 # =========================================================

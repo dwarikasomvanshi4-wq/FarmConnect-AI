@@ -1,5 +1,4 @@
-
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
@@ -19,9 +18,21 @@ import Voice from "./pages/Voice";
 import BuyerChat from "./pages/BuyerChat";
 import FarmerChat from "./pages/FarmerChat";
 import Support from "./pages/Support";
+import AdminDashboard from "./pages/AdminDashboard";
 
 import GlobalChatWidget from "./components/GlobalChatWidget";
 import { LanguageProvider } from "./i18n/LanguageContext";
+
+function AdminRoute({ children }) {
+  const token = sessionStorage.getItem("authToken");
+  const role = sessionStorage.getItem("userRole");
+
+  if (!token || role?.toLowerCase() !== "admin") {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
 
 function App() {
   return (
@@ -34,6 +45,14 @@ function App() {
 
         <Route path="/farmer-dashboard" element={<FarmerDashboard />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
+        <Route
+  path="/admin-dashboard"
+  element={
+    <AdminRoute>
+      <AdminDashboard />
+    </AdminRoute>
+  }
+/>
 
         <Route path="/add-crop" element={<AddCrop />} />
         <Route path="/my-crops" element={<MyCrops />} />

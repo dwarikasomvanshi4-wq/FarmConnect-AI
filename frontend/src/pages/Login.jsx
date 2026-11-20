@@ -334,17 +334,20 @@ const API_URL =
       sessionStorage.setItem("userEmail", data.email);
       sessionStorage.setItem("userName", data.name);
       sessionStorage.setItem("userRole", data.role);
+      sessionStorage.setItem("authToken", data.token);
 
       setMessage(t.loginSuccess);
       speakText(t.loginSuccess);
 
-      if (data.role?.toLowerCase() === "farmer") {
-        navigate("/farmer-dashboard");
-      } else if (data.role?.toLowerCase() === "buyer") {
-        navigate("/buyer-dashboard");
-      } else {
-        navigate("/");
-      }
+      if (data.role?.toLowerCase() === "admin") {
+  navigate("/admin-dashboard");
+} else if (data.role?.toLowerCase() === "farmer") {
+  navigate("/farmer-dashboard");
+} else if (data.role?.toLowerCase() === "buyer") {
+  navigate("/buyer-dashboard");
+} else {
+  navigate("/");
+}
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
