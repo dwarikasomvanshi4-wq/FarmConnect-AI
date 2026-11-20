@@ -1,9 +1,3 @@
-import {
-  FaFacebookF,
-  FaInstagram,
-  FaLinkedinIn,
-  FaGithub,
-} from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -22,8 +16,9 @@ function Footer() {
       features: "Features",
       about: "About",
       contact: "Contact",
+      supportTitle: "Support",
       support: "Support & Report an Issue",
-      connect: "Connect With Us",
+      helpText: "Need help? Have a question or facing a problem?",
       copyright: "© 2026 FarmConnect AI | Developed by Dwarika",
     },
     hi: {
@@ -35,8 +30,9 @@ function Footer() {
       features: "विशेषताएँ",
       about: "हमारे बारे में",
       contact: "संपर्क",
+      supportTitle: "सहायता",
       support: "सहायता और समस्या रिपोर्ट करें",
-      connect: "हमसे जुड़ें",
+      helpText: "मदद चाहिए? कोई प्रश्न है या समस्या आ रही है?",
       copyright: "© 2026 FarmConnect AI | Dwarika द्वारा विकसित",
     },
     kn: {
@@ -48,8 +44,9 @@ function Footer() {
       features: "ವೈಶಿಷ್ಟ್ಯಗಳು",
       about: "ನಮ್ಮ ಬಗ್ಗೆ",
       contact: "ಸಂಪರ್ಕ",
+      supportTitle: "ಸಹಾಯ",
       support: "ಸಹಾಯ ಮತ್ತು ಸಮಸ್ಯೆ ವರದಿ",
-      connect: "ನಮ್ಮೊಂದಿಗೆ ಸಂಪರ್ಕಿಸಿ",
+      helpText: "ಸಹಾಯ ಬೇಕೇ? ಪ್ರಶ್ನೆ ಇದೆಯೇ ಅಥವಾ ಸಮಸ್ಯೆ ಎದುರಿಸುತ್ತಿದ್ದೀರಾ?",
       copyright: "© 2026 FarmConnect AI | Dwarika ಅವರಿಂದ ಅಭಿವೃದ್ಧಿಪಡಿಸಲಾಗಿದೆ",
     },
   };
@@ -58,12 +55,7 @@ function Footer() {
 
   const scrollToSection = (sectionId) => {
     if (location.pathname !== "/") {
-      navigate("/");
-      setTimeout(() => {
-        document.getElementById(sectionId)?.scrollIntoView({
-          behavior: "smooth",
-        });
-      }, 300);
+      navigate("/", { state: { scrollTo: sectionId } });
     } else {
       document.getElementById(sectionId)?.scrollIntoView({
         behavior: "smooth",
@@ -77,10 +69,7 @@ function Footer() {
   };
 
   return (
-    <footer
-      id="contact"
-      className="mt-10 bg-gray-900 text-white sm:mt-16"
-    >
+    <footer id="contact" className="mt-10 bg-gray-900 text-white sm:mt-16">
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
 
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 sm:gap-10">
@@ -138,30 +127,25 @@ function Footer() {
                   {text.contact}
                 </button>
               </li>
-
-              <li>
-                <button
-                  onClick={() => navigate("/support")}
-                  className="font-medium text-green-400 transition hover:text-green-300"
-                >
-                  🛠️ {text.support}
-                </button>
-              </li>
             </ul>
           </div>
 
-          {/* Social Links */}
+          {/* Support Section */}
           <div>
             <h3 className="mb-4 text-lg font-semibold sm:text-xl">
-              {text.connect}
+              {text.supportTitle}
             </h3>
 
-            <div className="flex gap-5 text-2xl">
-              <FaFacebookF className="cursor-pointer transition hover:text-green-400" />
-              <FaInstagram className="cursor-pointer transition hover:text-green-400" />
-              <FaLinkedinIn className="cursor-pointer transition hover:text-green-400" />
-              <FaGithub className="cursor-pointer transition hover:text-green-400" />
-            </div>
+            <p className="mb-4 text-sm leading-6 text-gray-300">
+              {text.helpText}
+            </p>
+
+            <button
+              onClick={() => navigate("/support")}
+              className="inline-flex items-center rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-green-700"
+            >
+              🛠️ {text.support}
+            </button>
           </div>
 
         </div>
