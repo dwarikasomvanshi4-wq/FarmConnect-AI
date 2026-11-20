@@ -40,28 +40,34 @@ function Hero() {
   const text = content[language] || content.en;
 
   return (
-    <section className="bg-white overflow-hidden">
-      <div className="max-w-7xl mx-auto px-8 py-20">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+    <section className="overflow-hidden bg-white">
+      <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-20">
+        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
+
           {/* Left Side */}
-          <div>
-            <span className="bg-green-100 text-green-700 px-4 py-2 rounded-full font-medium">
+          <div className="min-w-0 text-center lg:text-left">
+
+            <span className="inline-block rounded-full bg-green-100 px-3 py-2 text-xs font-medium text-green-700 sm:px-4 sm:text-sm">
               {text.badge}
             </span>
 
-            <h1 className="mt-6 text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+            <h1 className="mt-5 text-3xl font-bold leading-tight text-gray-900 sm:text-4xl md:text-5xl lg:text-6xl">
               {text.title}
-              <span className="text-green-600">{text.highlight}</span>
+              <span className="block text-green-600">
+                {text.highlight}
+              </span>
             </h1>
 
-            <p className="mt-6 text-lg text-gray-600 leading-8">
+            <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-gray-600 sm:mt-6 sm:text-lg sm:leading-8 lg:mx-0">
               {text.description}
             </p>
 
-            <div className="mt-10 flex flex-wrap gap-5">
+            {/* Login Buttons */}
+            <div className="mx-auto mt-7 flex w-full max-w-md flex-col gap-3 sm:mt-9 sm:flex-row sm:gap-4 lg:mx-0">
+
               <button
                 onClick={() => navigate("/login?role=farmer")}
-                className="bg-green-600 text-white px-7 py-4 rounded-xl hover:bg-green-700 transition flex items-center gap-2"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700 sm:flex-1"
               >
                 {text.farmerLogin}
                 <ArrowRight size={20} />
@@ -69,19 +75,23 @@ function Hero() {
 
               <button
                 onClick={() => navigate("/login?role=buyer")}
-                className="border border-green-600 text-green-600 px-7 py-4 rounded-xl hover:bg-green-50 transition"
+                className="flex min-h-12 w-full items-center justify-center rounded-xl border border-green-600 px-5 py-3 font-semibold text-green-600 transition hover:bg-green-50 sm:flex-1"
               >
                 {text.buyerLogin}
               </button>
+
             </div>
           </div>
 
-          {/* Right Side */}
+          {/* Right Side - Illustration */}
           <div className="flex justify-center">
-            <div className="w-[420px] h-[420px] max-w-full rounded-full bg-gradient-to-br from-green-100 to-green-300 flex items-center justify-center shadow-xl">
-              <span className="text-9xl">👨‍🌾</span>
+            <div className="flex aspect-square w-full max-w-[280px] items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-green-300 shadow-xl sm:max-w-[360px] lg:max-w-[420px]">
+              <span className="text-7xl sm:text-8xl lg:text-9xl">
+                👨‍🌾
+              </span>
             </div>
           </div>
+
         </div>
       </div>
     </section>

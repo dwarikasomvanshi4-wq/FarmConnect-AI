@@ -120,22 +120,25 @@ function Landing() {
     <>
       <Navbar />
 
-      {/* Multilingual Welcome Section */}
-      <section className="bg-green-50 px-6 py-12">
-        <div className="max-w-4xl mx-auto text-center bg-white rounded-2xl shadow-lg p-8">
+      {/* Welcome Section */}
+      <section className="bg-green-50 px-4 py-8 sm:px-6 sm:py-12">
+        <div className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-4 text-center shadow-lg sm:p-6 md:p-8">
 
-          <div className="text-5xl mb-4">🌱</div>
+          <div className="mb-3 text-4xl sm:mb-4 sm:text-5xl">
+            🌱
+          </div>
 
-          <h1 className="text-3xl md:text-4xl font-bold text-green-800 mb-3">
+          <h1 className="mb-3 text-2xl font-bold leading-tight text-green-800 sm:text-3xl md:text-4xl">
             {text.welcome}
           </h1>
 
-          <p className="text-gray-600 text-lg mb-6">
+          <p className="mb-5 text-base leading-relaxed text-gray-600 sm:mb-6 sm:text-lg">
             {text.subtitle}
           </p>
 
-          <div className="mb-6">
-            <label className="block font-semibold text-gray-700 mb-2">
+          {/* Language Selector */}
+          <div className="mb-5 sm:mb-6">
+            <label className="mb-2 block text-sm font-semibold text-gray-700 sm:text-base">
               {language === "hi"
                 ? "अपनी भाषा चुनें"
                 : language === "kn"
@@ -149,7 +152,7 @@ function Landing() {
                 setLanguage(e.target.value);
                 window.speechSynthesis?.cancel();
               }}
-              className="border border-green-500 rounded-lg px-5 py-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full max-w-xs rounded-lg border border-green-500 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="en">English</option>
               <option value="hi">हिन्दी (Hindi)</option>
@@ -157,40 +160,42 @@ function Landing() {
             </select>
           </div>
 
+          {/* Voice Welcome */}
           <button
             onClick={speakWelcome}
-            className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold px-6 py-3 rounded-full mb-8"
+            className="mb-6 inline-flex w-full max-w-sm items-center justify-center rounded-full bg-yellow-400 px-4 py-3 text-sm font-semibold text-gray-900 transition hover:bg-yellow-500 sm:mb-8 sm:text-base"
           >
             🔊 {text.replay}
           </button>
 
-          <div className="grid md:grid-cols-2 gap-6 text-left">
+          {/* Register and Login */}
+          <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-2 md:gap-6">
 
             {/* New User */}
-            <div className="border border-green-200 rounded-xl p-6 bg-green-50 text-center">
-              <h2 className="text-xl font-bold text-green-800 mb-3">
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 sm:p-6">
+              <h2 className="mb-3 text-lg font-bold leading-snug text-green-800 sm:text-xl">
                 {text.newUser}
               </h2>
 
-              <p className="text-gray-600 mb-5">
+              <p className="mb-5 text-sm leading-relaxed text-gray-600 sm:text-base">
                 {text.registerText}
               </p>
 
               <Link
                 to="/register"
-                className="inline-block bg-green-700 hover:bg-green-800 text-white font-bold px-8 py-3 rounded-lg"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-green-700 px-6 py-3 font-bold text-white transition hover:bg-green-800 sm:w-auto"
               >
                 {text.register}
               </Link>
             </div>
 
             {/* Existing User */}
-            <div className="border border-blue-200 rounded-xl p-6 bg-blue-50 text-center">
-              <h2 className="text-xl font-bold text-blue-800 mb-3">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-6">
+              <h2 className="mb-3 text-lg font-bold leading-snug text-blue-800 sm:text-xl">
                 {text.oldUser}
               </h2>
 
-              <p className="text-gray-600 mb-5">
+              <p className="mb-5 text-sm leading-relaxed text-gray-600 sm:text-base">
                 {language === "hi"
                   ? "अपने अकाउंट में आगे बढ़ें।"
                   : language === "kn"
@@ -200,7 +205,7 @@ function Landing() {
 
               <Link
                 to="/login"
-                className="inline-block bg-blue-700 hover:bg-blue-800 text-white font-bold px-8 py-3 rounded-lg"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-blue-700 px-6 py-3 font-bold text-white transition hover:bg-blue-800 sm:w-auto"
               >
                 {text.login}
               </Link>
@@ -210,17 +215,18 @@ function Landing() {
         </div>
       </section>
 
+      {/* Hero Section */}
       <Hero />
 
       {/* Features */}
-      <section className="bg-green-50 py-16">
-        <div className="max-w-7xl mx-auto px-8">
+      <section className="bg-green-50 px-4 py-10 sm:px-6 sm:py-16">
+        <div className="mx-auto w-full max-w-7xl">
 
-          <h2 className="text-4xl font-bold text-center text-gray-800 mb-12">
+          <h2 className="mb-8 text-center text-2xl font-bold text-gray-800 sm:mb-10 sm:text-3xl md:mb-12 md:text-4xl">
             {text.featuresTitle}
           </h2>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
             <FeatureCard
               icon="🎤"
               title={text.voiceTitle}
