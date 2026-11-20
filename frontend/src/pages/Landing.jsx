@@ -1,6 +1,6 @@
 
 import { useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
@@ -10,6 +10,7 @@ import { useLanguage } from "../i18n/LanguageContext";
 
 function Landing() {
   const { language, setLanguage } = useLanguage();
+  const location = useLocation();
   const hasSpoken = useRef(false);
 
   const content = {
@@ -115,13 +116,26 @@ function Landing() {
       }
     };
   }, []);
+  useEffect(() => {
+  const sectionId = location.state?.scrollTo;
+
+  if (sectionId) {
+    const timer = setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }
+}, [location]);
 
   return (
     <>
       <Navbar />
 
       {/* Welcome Section */}
-      <section className="bg-green-50 px-4 py-8 sm:px-6 sm:py-12">
+      <section id="welcome" className="bg-green-50 px-4 py-8 sm:px-6 sm:py-12">
         <div className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-4 text-center shadow-lg sm:p-6 md:p-8">
 
           <div className="mb-3 text-4xl sm:mb-4 sm:text-5xl">
@@ -219,7 +233,7 @@ function Landing() {
       <Hero />
 
       {/* Features */}
-      <section className="bg-green-50 px-4 py-10 sm:px-6 sm:py-16">
+      <section id="features" className="bg-green-50 px-4 py-10 sm:px-6 sm:py-16">
         <div className="mx-auto w-full max-w-7xl">
 
           <h2 className="mb-8 text-center text-2xl font-bold text-gray-800 sm:mb-10 sm:text-3xl md:mb-12 md:text-4xl">

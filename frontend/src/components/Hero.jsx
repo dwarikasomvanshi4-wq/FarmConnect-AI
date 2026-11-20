@@ -40,7 +40,7 @@ function Hero() {
   const text = content[language] || content.en;
 
   return (
-    <section className="overflow-hidden bg-white">
+    <section id="about" className="overflow-hidden bg-white">
       <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8 lg:py-20">
         <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
 
