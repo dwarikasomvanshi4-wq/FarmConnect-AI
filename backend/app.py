@@ -7,6 +7,8 @@ from firebase_admin import credentials, messaging
 
 import requests
 import certifi
+import cloudinary
+import cloudinary.uploader
 from uuid import uuid4
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
@@ -171,7 +173,13 @@ LOGIN_OTP_EXPIRY_SECONDS = 300  # 5 minutes
 
  
 API_KEY = os.getenv("WEATHER_API_KEY")
-
+# Cloudinary Configuration
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 UPLOAD_FOLDER = "uploads"
 
 if not os.path.exists(UPLOAD_FOLDER):
@@ -1217,16 +1225,16 @@ def upload_image():
     extension = os.path.splitext(original_filename)[1].lower()
     filename = f"{uuid4().hex}{extension}"
 
-    upload_folder = app.config["UPLOAD_FOLDER"]
-    os.makedirs(upload_folder, exist_ok=True)
-
-    filepath = os.path.join(upload_folder, filename)
-
     try:
-        file.save(filepath)
+        # Upload image to Cloudinary
+        result = cloudinary.uploader.upload(
+            file,
+            folder="farmconnect/crops",
+            public_id=uuid4().hex,
+            resource_type="image"
+        )
 
-        # Generate a browser-accessible image URL.
-        image_url = request.host_url.rstrip("/") + f"/uploads/{filename}"
+        image_url = result["secure_url"]
 
         return jsonify({
             "message": "Image uploaded successfully",
@@ -1238,17 +1246,13 @@ def upload_image():
     except Exception:
         app.logger.exception("IMAGE UPLOAD ERROR")
 
-        if os.path.exists(filepath):
-            try:
-                os.remove(filepath)
-            except OSError:
-                pass
-
-        return jsonify({"error": "Unable to upload image"}), 500
+        return jsonify({
+            "error": "Unable to upload image"
+        }), 500
 
 
 # =========================================================
-# SERVE UPLOADED IMAGES
+# SERVE UPLOADED IMAGES (LEGACY LOCAL IMAGES)
 # =========================================================
 
 @app.route("/uploads/<path:filename>", methods=["GET"])
