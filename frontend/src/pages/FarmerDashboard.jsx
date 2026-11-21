@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import {
   Bell, Sun, Sprout, ShoppingBag, IndianRupee, CloudSun,
   Mic, MicOff, Volume2, AlertTriangle, RefreshCw, Package,
-  CheckCircle2, TrendingUp, Download
+  CheckCircle2, TrendingUp, Download,MessageCircle,
 } from "lucide-react";
 import api from "../services/api";
 import { registerFarmerForNotifications } from "../notificationService";
@@ -2010,7 +2010,34 @@ const filteredDeliveredOrders = useMemo(() => {
               </>
             )}
           </section>
+          {/* MY SUPPORT REQUESTS */}
+<section className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm md:p-7">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex items-start gap-4">
+      <div className="rounded-xl bg-blue-50 p-3 text-blue-700">
+        <MessageCircle size={25} />
+      </div>
 
+      <div>
+        <h2 className="text-xl font-bold text-gray-900">
+          My Support Requests
+        </h2>
+
+        <p className="mt-1 text-sm text-gray-500">
+          Track your support requests and check their latest status.
+        </p>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => navigate("/my-support-requests")}
+      className="rounded-xl bg-blue-700 px-5 py-3 font-semibold text-white transition hover:bg-blue-800"
+    >
+      View My Requests →
+    </button>
+  </div>
+</section>
           {/* FARMING OVERVIEW */}
           <section className="rounded-2xl border border-green-100 bg-white p-6 shadow-sm md:p-7">
             <div className="flex items-center gap-3">

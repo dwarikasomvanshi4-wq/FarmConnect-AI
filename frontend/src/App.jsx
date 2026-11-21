@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Landing from "./pages/Landing";
@@ -19,10 +20,12 @@ import BuyerChat from "./pages/BuyerChat";
 import FarmerChat from "./pages/FarmerChat";
 import Support from "./pages/Support";
 import AdminDashboard from "./pages/AdminDashboard";
+import MySupportRequests from "./pages/MySupportRequests";
 
 import GlobalChatWidget from "./components/GlobalChatWidget";
 import { LanguageProvider } from "./i18n/LanguageContext";
 
+// Admin Route Protection
 function AdminRoute({ children }) {
   const token = sessionStorage.getItem("authToken");
   const role = sessionStorage.getItem("userRole");
@@ -34,45 +37,85 @@ function AdminRoute({ children }) {
   return children;
 }
 
+// User Authentication Protection
+function ProtectedRoute({ children }) {
+  const token = sessionStorage.getItem("authToken");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <LanguageProvider>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        <Route path="/farmer-dashboard" element={<FarmerDashboard />} />
-        <Route path="/buyer-dashboard" element={<BuyerDashboard />} />
+        {/* Dashboard Routes */}
         <Route
-  path="/admin-dashboard"
-  element={
-    <AdminRoute>
-      <AdminDashboard />
-    </AdminRoute>
-  }
-/>
+          path="/farmer-dashboard"
+          element={<FarmerDashboard />}
+        />
 
+        <Route
+          path="/buyer-dashboard"
+          element={<BuyerDashboard />}
+        />
+
+        {/* Admin Dashboard */}
+        <Route
+          path="/admin-dashboard"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+
+        {/* My Support Requests - Protected */}
+        <Route
+          path="/my-support-requests"
+          element={
+            <ProtectedRoute>
+              <MySupportRequests />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Crop Routes */}
         <Route path="/add-crop" element={<AddCrop />} />
         <Route path="/my-crops" element={<MyCrops />} />
+
+        {/* Other Routes */}
         <Route path="/weather" element={<Weather />} />
         <Route path="/checkout" element={<Checkout />} />
-
         <Route path="/orders" element={<Orders />} />
         <Route path="/buyer-orders" element={<BuyerOrders />} />
-
         <Route path="/profile" element={<Profile />} />
         <Route path="/earnings" element={<Earnings />} />
         <Route path="/voice" element={<Voice />} />
         <Route path="/support" element={<Support />} />
-        <Route path="/support" element={<Support />} />
-        {/* Chat routes */}
-        <Route path="/buyer-chat/:orderId" element={<BuyerChat />} />
-        <Route path="/farmer-chat/:orderId" element={<FarmerChat />} />
+
+        {/* Chat Routes */}
+        <Route
+          path="/buyer-chat/:orderId"
+          element={<BuyerChat />}
+        />
+
+        <Route
+          path="/farmer-chat/:orderId"
+          element={<FarmerChat />}
+        />
       </Routes>
 
-      {/* Global chat available throughout the app */}
+      {/* Global Chat */}
       <GlobalChatWidget />
     </LanguageProvider>
   );

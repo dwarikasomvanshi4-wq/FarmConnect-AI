@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   MapPin,
   CreditCard,
+  MessageCircle,
 } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -1702,7 +1703,35 @@ const buyerName = sessionStorage.getItem("userName") || "Buyer";
               </button>
             </div>
           </div>
+          {/* MY SUPPORT REQUESTS */}
+<div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
+  <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex items-start gap-4">
+        <div className="bg-blue-50 p-3 rounded-xl">
+          <MessageCircle className="text-blue-700" size={28} />
+        </div>
 
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">
+            My Support Requests
+          </h2>
+
+          <p className="text-gray-500 text-sm mt-1">
+            Track your submitted requests and check their latest status.
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => navigate("/my-support-requests")}
+        className="w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-xl font-semibold transition"
+      >
+        View My Requests →
+      </button>
+    </div>
+  </div>
+</div>
           {/* Find Nearby Crops */}
           <div className="max-w-7xl mx-auto px-6 lg:px-10 mt-8">
             <div className="bg-white rounded-2xl shadow-lg border border-green-100 p-6 md:p-8">

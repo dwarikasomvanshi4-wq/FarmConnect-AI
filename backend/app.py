@@ -2455,7 +2455,6 @@ def update_order(id):
 
 
 @app.route("/request-password-reset-otp", methods=["POST"])
-
 def request_password_reset_otp():
     data = request.get_json(silent=True) or {}
     email = data.get("email", "").strip().lower()
@@ -2470,7 +2469,7 @@ def request_password_reset_otp():
                 {"email": email}
             ).fetchone()
 
-        # Use a generic response to avoid revealing whether an email exists.
+        # Generic response to avoid revealing whether an account exists.
         if not user:
             return jsonify({
                 "message": "If the account exists, a password-reset OTP will be sent."
@@ -2486,18 +2485,30 @@ def request_password_reset_otp():
             "name": user.name
         }
 
-        message = Message(
-            subject="FarmConnect AI - Password Reset OTP",
-            recipients=[email],
-            body=(
-                f"Hello {user.name},\n\n"
-                f"Your password-reset OTP is: {otp}\n\n"
-                "This code expires in 5 minutes.\n"
-                "If you did not request this, you can ignore this email."
-            )
+        subject = "FarmConnect AI - Password Reset OTP"
+
+        body = (
+            f"Hello {user.name},\n\n"
+            f"Your password-reset OTP is: {otp}\n\n"
+            "This code expires in 5 minutes.\n"
+            "If you did not request this, you can ignore this email.\n\n"
+            "Regards,\n"
+            "FarmConnect AI"
         )
 
-        mail.send(message)
+        email_sent = send_email(email, subject, body)
+
+        if not email_sent:
+            pending_password_resets.pop(email, None)
+
+            app.logger.error(
+                "Password reset OTP email failed for %s",
+                email
+            )
+
+            return jsonify({
+                "message": "Unable to send OTP right now. Please try again later."
+            }), 500
 
         return jsonify({
             "message": "If the account exists, a password-reset OTP will be sent."
@@ -2505,11 +2516,12 @@ def request_password_reset_otp():
 
     except Exception:
         app.logger.exception("PASSWORD RESET OTP REQUEST ERROR")
+
         pending_password_resets.pop(email, None)
+
         return jsonify({
             "message": "Unable to process the request right now."
         }), 500
-        
 
 @app.route("/verify-password-reset-otp", methods=["POST"])
 def verify_password_reset_otp():
@@ -2913,6 +2925,79 @@ def get_support_requests():
 
     except Exception as e:
         app.logger.exception("ADMIN SUPPORT REQUESTS ERROR")
+
+        return jsonify({
+            "success": False,
+            "message": "Unable to fetch support requests"
+        }), 500
+@app.route("/my-support-requests", methods=["GET"])
+def get_my_support_requests():
+    try:
+        # Get authentication token
+        auth_header = request.headers.get("Authorization", "")
+
+        if not auth_header.startswith("Bearer "):
+            return jsonify({
+                "success": False,
+                "message": "Authentication required"
+            }), 401
+
+        token = auth_header.split(" ")[1]
+        user_data = verify_auth_token(token)
+
+        if not user_data:
+            return jsonify({
+                "success": False,
+                "message": "Invalid or expired token"
+            }), 401
+
+        user_email = user_data.get("email")
+
+        # Fetch support requests belonging to this user
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT
+                        id,
+                        name,
+                        email,
+                        user_type,
+                        category,
+                        description,
+                        status,
+                        created_at,
+                        updated_at
+                    FROM support_requests
+                    WHERE email = :email
+                    ORDER BY created_at DESC
+                """),
+                {"email": user_email}
+            )
+
+            requests_list = [
+                dict(row._mapping)
+                for row in result.fetchall()
+            ]
+
+        # Convert datetime values to strings
+        for support_request in requests_list:
+            if support_request.get("created_at"):
+                support_request["created_at"] = (
+                    support_request["created_at"].isoformat()
+                )
+
+            if support_request.get("updated_at"):
+                support_request["updated_at"] = (
+                    support_request["updated_at"].isoformat()
+                )
+
+        return jsonify({
+            "success": True,
+            "support_requests": requests_list
+        }), 200
+
+    except Exception:
+        app.logger.exception("MY SUPPORT REQUESTS ERROR")
 
         return jsonify({
             "success": False,
