@@ -153,13 +153,13 @@ CORS(
     resources={
         r"/*": {
             "origins": [
-                "https://farm-connect-ai-zeta.vercel.app"
+                "https://farm-connect-ai-zeta.vercel.app",
+                "https://farm-connect-k842y5q1e-dwarika-s-projects.vercel.app"
             ]
         }
     },
     supports_credentials=True
 )
-
 # Temporary storage for login OTPs
 pending_login_otps = {}
 LOGIN_OTP_EXPIRY_SECONDS = 300  # 5 minutes
