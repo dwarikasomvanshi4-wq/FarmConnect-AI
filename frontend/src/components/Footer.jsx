@@ -1,3 +1,4 @@
+
 import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage } from "../i18n/LanguageContext";
 
@@ -15,7 +16,9 @@ function Footer() {
       home: "Home",
       features: "Features",
       about: "About",
-      contact: "Contact",
+      contact: "Contact Us",
+      contactTitle: "Contact Us",
+      contactText: "Have questions? Reach out to our team.",
       supportTitle: "Support",
       support: "Support & Report an Issue",
       helpText: "Need help? Have a question or facing a problem?",
@@ -30,6 +33,8 @@ function Footer() {
       features: "विशेषताएँ",
       about: "हमारे बारे में",
       contact: "संपर्क",
+      contactTitle: "हमसे संपर्क करें",
+      contactText: "कोई प्रश्न है? हमारी टीम से संपर्क करें।",
       supportTitle: "सहायता",
       support: "सहायता और समस्या रिपोर्ट करें",
       helpText: "मदद चाहिए? कोई प्रश्न है या समस्या आ रही है?",
@@ -44,6 +49,8 @@ function Footer() {
       features: "ವೈಶಿಷ್ಟ್ಯಗಳು",
       about: "ನಮ್ಮ ಬಗ್ಗೆ",
       contact: "ಸಂಪರ್ಕ",
+      contactTitle: "ನಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸಿ",
+      contactText: "ಪ್ರಶ್ನೆಗಳಿವೆಯೇ? ನಮ್ಮ ತಂಡವನ್ನು ಸಂಪರ್ಕಿಸಿ.",
       supportTitle: "ಸಹಾಯ",
       support: "ಸಹಾಯ ಮತ್ತು ಸಮಸ್ಯೆ ವರದಿ",
       helpText: "ಸಹಾಯ ಬೇಕೇ? ಪ್ರಶ್ನೆ ಇದೆಯೇ ಅಥವಾ ಸಮಸ್ಯೆ ಎದುರಿಸುತ್ತಿದ್ದೀರಾ?",
@@ -52,6 +59,12 @@ function Footer() {
   };
 
   const text = content[language] || content.en;
+
+  const emails = [
+    "dwarikasomvanshi4@gmail.com",
+    "ambikaswamy9353@gmail.com",
+    "aratijadhav710@gmail.com",
+  ];
 
   const scrollToSection = (sectionId) => {
     if (location.pathname !== "/") {
@@ -72,7 +85,7 @@ function Footer() {
     <footer id="contact" className="mt-10 bg-gray-900 text-white sm:mt-16">
       <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
 
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 sm:gap-10">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 sm:gap-10">
 
           {/* Brand and Description */}
           <div>
@@ -146,6 +159,30 @@ function Footer() {
             >
               🛠️ {text.support}
             </button>
+          </div>
+
+          {/* Contact Emails */}
+          <div>
+            <h3 className="mb-4 text-lg font-semibold text-green-400 sm:text-xl">
+              {text.contactTitle}
+            </h3>
+
+            <p className="mb-4 text-sm leading-6 text-gray-300">
+              {text.contactText}
+            </p>
+
+            <ul className="space-y-3">
+              {emails.map((email) => (
+                <li key={email}>
+                  <a
+                    href={`mailto:${email}`}
+                    className="break-all text-sm text-gray-300 transition hover:text-green-400 sm:text-base"
+                  >
+                    ✉️ {email}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
 
         </div>
