@@ -85,7 +85,7 @@ const translations = {
     currentStage: "Current stage",
     rejectedFurther: "This order will not proceed further.",
     browseOtherCrops: "Browse Other Crops",
-    autoRefresh: "Order status refreshes automatically every 5 seconds.",
+
     backDashboard: "Back to buyer dashboard",
   },
 
@@ -153,7 +153,7 @@ const translations = {
     currentStage: "वर्तमान चरण",
     rejectedFurther: "यह ऑर्डर आगे नहीं बढ़ेगा।",
     browseOtherCrops: "दूसरी फसलें देखें",
-    autoRefresh: "ऑर्डर की स्थिति हर 5 सेकंड में अपने आप अपडेट होती है।",
+    
     backDashboard: "खरीदार डैशबोर्ड पर वापस जाएँ",
   },
 
@@ -221,7 +221,7 @@ const translations = {
     currentStage: "ಪ್ರಸ್ತುತ ಹಂತ",
     rejectedFurther: "ಈ ಆರ್ಡರ್ ಮುಂದುವರಿಯುವುದಿಲ್ಲ.",
     browseOtherCrops: "ಬೇರೆ ಬೆಳೆಗಳನ್ನು ನೋಡಿ",
-    autoRefresh: "ಆರ್ಡರ್ ಸ್ಥಿತಿ ಪ್ರತಿ 5 ಸೆಕೆಂಡಿಗೆ ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಅಪ್‌ಡೇಟ್ ಆಗುತ್ತದೆ.",
+    
     backDashboard: "ಖರೀದಿದಾರರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹಿಂತಿರುಗಿ",
   },
 };
@@ -309,14 +309,8 @@ function BuyerOrders() {
   );
 
   useEffect(() => {
-    loadOrders();
-
-    const interval = setInterval(() => {
-      loadOrders();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [loadOrders]);
+  loadOrders();
+}, [loadOrders]);
 
   const normaliseStatus = (status) =>
     String(status || "Pending").trim().toLowerCase();
@@ -873,9 +867,7 @@ function BuyerOrders() {
                       </div>
                     )}
 
-                    <p className="text-gray-400 text-xs mt-6">
-                      {t("autoRefresh")}
-                    </p>
+                    
                   </div>
                 </div>
               );
