@@ -1053,12 +1053,20 @@ const buyerName = sessionStorage.getItem("userName") || "Buyer";
 
   const getImageUrl = (imageUrl) => {
   if (!imageUrl) return "";
-  if (imageUrl.startsWith("http")) return imageUrl;
+
+  // If the image already has a complete URL
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
 
   const baseURL =
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+    import.meta.env.VITE_API_URL ||
+    "https://farmconnect-ai-gkhb.onrender.com";
 
-  return `${baseURL}/${imageUrl.replace(/\\/g, "/")}`;
+  // Normalize image path
+  const cleanPath = imageUrl.replace(/\\/g, "/");
+
+  return `${baseURL}/${cleanPath.replace(/^\/+/, "")}`;
 };
   const renderCheckout = () => {
     if (checkoutStep === 0) return null;
