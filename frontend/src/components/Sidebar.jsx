@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   X,
+  CircleHelp,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -131,6 +132,13 @@ function Sidebar() {
             Profile
           </button>
         </nav>
+        <button
+  onClick={() => goTo("/help-support")}
+  className="flex w-full items-center gap-4 rounded-xl p-4 transition hover:bg-green-700"
+>
+  <CircleHelp size={22} />
+  Help & Support
+</button>
 
         {/* Logout */}
         <div className="border-t border-green-700 p-4">

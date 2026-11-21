@@ -21,7 +21,7 @@ import FarmerChat from "./pages/FarmerChat";
 import Support from "./pages/Support";
 import AdminDashboard from "./pages/AdminDashboard";
 import MySupportRequests from "./pages/MySupportRequests";
-
+import HelpSupport from "./pages/HelpSupport";
 import GlobalChatWidget from "./components/GlobalChatWidget";
 import { LanguageProvider } from "./i18n/LanguageContext";
 
@@ -88,7 +88,15 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        {/* Help & Support - Protected */}
+<Route
+  path="/help-support"
+  element={
+    <ProtectedRoute>
+      <HelpSupport />
+    </ProtectedRoute>
+  }
+/>
         {/* Crop Routes */}
         <Route path="/add-crop" element={<AddCrop />} />
         <Route path="/my-crops" element={<MyCrops />} />

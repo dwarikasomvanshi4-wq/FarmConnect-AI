@@ -16,6 +16,7 @@ import {
   MapPin,
   CreditCard,
   MessageCircle,
+  CircleHelp,
 } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -1536,7 +1537,13 @@ const buyerName = sessionStorage.getItem("userName") || "Buyer";
                   <User size={19} />
                   {uiT("profile") || "Profile"}
                 </button>
-
+                <button
+  onClick={() => navigate("/help-support")}
+  className="bg-white text-green-700 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
+>
+  <CircleHelp size={19} />
+  Help & Support
+</button>
                 <button
                   onClick={logout}
                   className="bg-red-500 hover:bg-red-600 px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2"
